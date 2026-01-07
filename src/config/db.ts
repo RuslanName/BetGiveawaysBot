@@ -18,12 +18,20 @@ export const AppDataSource = new DataSource({
     logging: isDev,
 });
 
-export const initializeDatabase = async () => {
-    try {
-        await AppDataSource.initialize();
-    } catch (error) {
-        console.error('Error connecting to database:', error);
-        throw error;
+export const initializeDatabase = async (retries = 5, delay = 5000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await AppDataSource.initialize();
+            return;
+        } catch (error) {
+            console.error(`Error connecting to database (attempt ${i + 1}/${retries}):`, error);
+            if (i < retries - 1) {
+                console.log(`Retrying in ${delay / 1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw error;
+            }
+        }
     }
 };
 

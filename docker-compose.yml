@@ -1,18 +1,4 @@
 services:
-  bot:
-    build: .
-    container_name: bet-giveaways-bot
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - MODE=prod
-      - DB_HOST=postgres
-    depends_on:
-      - postgres
-    networks:
-      - bot-network
-
   postgres:
     image: postgres:16-alpine
     container_name: bet-giveaways-postgres
@@ -25,6 +11,26 @@ services:
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - bot-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    build: .
+    container_name: bet-giveaways-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - MODE=prod
+      - DB_HOST=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - bot-network
 
