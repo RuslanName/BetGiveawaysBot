@@ -93,7 +93,7 @@ export class AdminHandlers {
 
         const participantsCount = await this.betEventService.getParticipantsCount(eventId);
         
-        let message = `Событие "*${event.match_name}*"\n`;
+        let message = `*Событие «${event.match_name}»*\n`;
         message += `Количество участников: ${participantsCount}\n`;
         message += `Команда для ставки: ${event.winner_team}\n`;
         message += `Сумма ставки: ${event.bet_amount}\n`;
@@ -138,7 +138,7 @@ export class AdminHandlers {
             return;
         }
 
-        let message = `Событие "*${event.match_name}*"\n\n`;
+        let message = `*Событие «${event.match_name}»*\n\n`;
         result.participants.forEach((p, index) => {
             const num = (page - 1) * 20 + index + 1;
             const username = p.user.username ? `@${p.user.username}` : 'пользователь';
@@ -160,7 +160,7 @@ export class AdminHandlers {
             return;
         }
 
-        await updateOrSendMessage(ctx, `Что хотите изменить в событии *${event.match_name}*?`, {
+        await updateOrSendMessage(ctx, `Что хотите изменить в событии «${event.match_name}»?`, {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
@@ -182,7 +182,7 @@ export class AdminHandlers {
             return;
         }
 
-        await updateOrSendMessage(ctx, `Точно ли хотите удалить событие *${event.match_name}*?`, {
+        await updateOrSendMessage(ctx, `Точно ли хотите удалить событие «${event.match_name}»?`, {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
@@ -252,7 +252,7 @@ export class AdminHandlers {
 
         const participants = await this.giveawayService.getParticipants(giveawayId);
         
-        let message = `Розыгрыш №${giveawayId}\n`;
+        let message = `*Розыгрыш №${giveawayId}*\n`;
         message += `Количество участников: ${participants.length}\n`;
         message += `Текст: "${giveaway.caption}"\n`;
         message += `Дата завершения: ${formatDate(giveaway.ended_at)}`;
@@ -298,30 +298,30 @@ export class AdminHandlers {
                 let message = '';
                 if (result.winners.length === 1) {
                     const winner = result.winners[0];
-                    message = `Победитель розыгрыша №${giveawayId}: @${winner.username || 'пользователь'}`;
+                    message = `*Победитель розыгрыша №${giveawayId}:* @${winner.username || 'пользователь'}`;
                 } else {
-                    message = `Победители розыгрыша №${giveawayId}\n`;
+                    message = `*Победители розыгрыша №${giveawayId}:*\n`;
                     result.winners.forEach((winner, index) => {
                         message += `${index + 1}) @${winner.username || 'пользователь'}\n`;
                     });
                 }
 
-                await ctx.reply(message);
+                await ctx.reply(message, { parse_mode: 'Markdown' });
             } catch (error: any) {
                 await ctx.reply(error.message || 'Ошибка при выборе победителей');
             }
         } else {
             let message = '';
             if (winners.length === 1) {
-                message = `Победитель розыгрыша №${giveawayId}: @${winners[0].username || 'пользователь'}`;
+                message = `*Победитель розыгрыша №${giveawayId}:* @${winners[0].username || 'пользователь'}`;
             } else {
-                message = `Победители розыгрыша №${giveawayId}\n`;
+                message = `*Победители розыгрыша №${giveawayId}:*\n`;
                 winners.forEach((winner, index) => {
                     message += `${index + 1}) @${winner.username || 'пользователь'}\n`;
                 });
             }
 
-            await ctx.reply(message);
+            await ctx.reply(message, { parse_mode: 'Markdown' });
         }
     }
 
@@ -381,13 +381,13 @@ export class AdminHandlers {
         const giveaways = await this.giveawayService.getGiveawaysForAdmin();
         const participantsStats = await this.betEventService.getParticipantsStats();
 
-        let message = 'Количество зарегистрированных пользователей за\n';
+        let message = '*Количество зарегистрированных пользователей за*\n';
         message += `День: ${stats.today}\n`;
         message += `Неделя: ${stats.week}\n`;
         message += `Месяц: ${stats.month}\n`;
         message += `Год: ${stats.year}\n\n`;
 
-        message += 'Количество участников в событиях за\n';
+        message += '*Количество участников в событиях за*\n';
         message += `День: ${participantsStats.today}\n`;
         message += `Неделя: ${participantsStats.week}\n`;
         message += `Месяц: ${participantsStats.month}\n`;
@@ -395,7 +395,7 @@ export class AdminHandlers {
 
         for (const event of events) {
             const count = await this.betEventService.getParticipantsCount(event.id);
-            message += `Количество участников в событии "*${event.match_name}*": ${count}\n`;
+            message += `Количество участников в событии «${event.match_name}»: ${count}\n`;
         }
 
         for (const giveaway of giveaways) {
@@ -407,11 +407,13 @@ export class AdminHandlers {
             message += '\n';
         }
 
-        message += 'Топ 10 пользователей:\n';
-        stats.topUsers.forEach((item, index) => {
-            const username = item.user.username ? `@${item.user.username}` : 'пользователь';
-            message += `${index + 1}) ${username} (ID Betboom: ${item.user.betboom_id})\n`;
-        });
+        if (stats.topUsers.length > 0) {
+            message += '*Топ 10 пользователей:*\n';
+            stats.topUsers.forEach((item, index) => {
+                const username = item.user.username ? `@${item.user.username}` : 'пользователь';
+                message += `${index + 1}) ${username} (ID Betboom: ${item.user.betboom_id})\n`;
+            });
+        }
 
         await ctx.reply(message, { parse_mode: 'Markdown' });
     }
@@ -462,7 +464,7 @@ export class AdminHandlers {
             const allUsers = await userRepository.find({ select: ['chat_id'] });
             for (const userRow of allUsers) {
                 try {
-                    let message = `Новое событие: *${event.match_name}*\n`;
+                    let message = `*Новое событие: «${event.match_name}»*\n`;
                     message += `Команда для ставки: ${event.winner_team}\n`;
                     message += `Сумма ставки: ${event.bet_amount}\n`;
                     message += `Дата начала: ${formatDate(event.match_started_at)}`;

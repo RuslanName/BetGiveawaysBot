@@ -76,9 +76,9 @@ export class GiveawayService {
                 let message = '';
                 if (winners.length === 1) {
                     const winner = winners[0];
-                    message = `Победитель розыгрыша №${giveawayId} стал @${winner.username || 'пользователь'}, поздравляем победителя!`;
+                    message = `*Победитель розыгрыша №${giveawayId}* стал @${winner.username || 'пользователь'}, поздравляем победителя!`;
                 } else {
-                    message = `Победители розыгрыша №${giveawayId} стали:\n`;
+                    message = `*Победители розыгрыша №${giveawayId}* стали:\n`;
                     winners.forEach((winner, index) => {
                         message += `${index + 1}) @${winner.username || 'пользователь'}\n`;
                     });
