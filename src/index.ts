@@ -266,9 +266,9 @@ async function start() {
         ]);
 
         initCron(bot);
-        
-        bot.launch();
-        console.log('Bot started!');
+
+bot.launch();
+console.log('Bot started!');
     } catch (error) {
         console.error('Error starting bot:', error);
         process.exit(1);

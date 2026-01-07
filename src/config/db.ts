@@ -8,8 +8,8 @@ const isDev = ENV.MODE === 'dev';
 export const AppDataSource = new DataSource({
     type: 'postgres',
     host: ENV.DB_HOST,
-    port: ENV.DB_PORT,
-    username: ENV.DB_USER,
+    port: 5432,
+    username: ENV.DB_USERNAME,
     password: ENV.DB_PASSWORD,
     database: ENV.DB_NAME,
     schema: ENV.DB_SCHEMA,

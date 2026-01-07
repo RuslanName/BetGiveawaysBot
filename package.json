@@ -4,9 +4,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "cross-env MODE=dev nodemon --exec tsx src/index.ts",
+    "dev": "nodemon --exec tsx src/index.ts",
     "build": "tsc",
-    "start": "cross-env MODE=prod node dist/index.js"
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",
