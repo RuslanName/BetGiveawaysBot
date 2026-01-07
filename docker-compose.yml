@@ -26,7 +26,7 @@ services:
     env_file:
       - .env
     environment:
-      - MODE=prod
+      - MODE=${MODE}
       - DB_HOST=postgres
     depends_on:
       postgres:
