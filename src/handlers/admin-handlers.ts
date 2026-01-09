@@ -614,7 +614,7 @@ export class AdminHandlers {
         if (!chatId) return;
 
         const session = sessions.get(chatId);
-        const text = (ctx.message as any).text?.trim();
+        const text = (ctx.message as any).text?.trim() || (ctx.message as any).caption?.trim();
         const photo = (ctx.message as any).photo;
 
         if (session?.state === 'creating_event') {
@@ -632,7 +632,12 @@ export class AdminHandlers {
 
     private async processEventCreation(ctx: Context, text: string | undefined, photo: any) {
         const chatId = ctx.from?.id;
-        if (!chatId || !text) return;
+        if (!chatId) return;
+
+        if (!text) {
+            await ctx.reply('Отправьте информацию о матче текстом (можно в подписи к фото)');
+            return;
+        }
 
         const lines = text.split('\n').filter(l => l.trim());
         if (lines.length < 5) {
@@ -726,7 +731,7 @@ export class AdminHandlers {
         const fileId = photo ? photo[photo.length - 1].file_id : null;
 
         if (!text && !fileId) {
-            await ctx.reply('Отправьте текст или фото');
+            await ctx.reply('Отправьте текст и/или фото');
             return;
         }
 
