@@ -37,13 +37,28 @@ export class UserService {
     }
 
     async getStatistics() {
+        const { ContestPickRepository } = await import('../repositories/contest-pick.repository.js');
+        const pickRepo = new ContestPickRepository();
+        const topContestUsers = await pickRepo.getTopUsers(20);
+        
         return {
             today: await this.userRepo.countRegisteredToday(),
             week: await this.userRepo.countRegisteredThisWeek(),
             month: await this.userRepo.countRegisteredThisMonth(),
             year: await this.userRepo.countRegisteredThisYear(),
-            topUsers: await this.userRepo.getTopUsersByParticipations(10)
+            topUsers: await this.userRepo.getTopUsersByParticipations(10),
+            topContestUsers
         };
+    }
+
+    async getUserRanking(userId: number): Promise<{ rank: number; points: number; topUsers: Array<{ user_id: number; points: number; user: any }> }> {
+        const { ContestPickRepository } = await import('../repositories/contest-pick.repository.js');
+        const pickRepo = new ContestPickRepository();
+        const topUsers = await pickRepo.getTopUsers(20);
+        const rank = await pickRepo.getUserRank(userId);
+        const points = await pickRepo.getUserPoints(userId);
+        
+        return { rank, points, topUsers };
     }
 }
 

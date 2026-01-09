@@ -19,10 +19,7 @@ export class BetEventRepository {
 
     async findActiveAndAwaitingReview(): Promise<BetEvent[]> {
         return this.repository.find({
-            where: [
-                { status: 'active' },
-                { status: 'awaiting_review' }
-            ],
+            where: { status: 'active' },
             order: { created_at: 'DESC' }
         });
     }

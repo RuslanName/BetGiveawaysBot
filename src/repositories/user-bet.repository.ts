@@ -58,5 +58,12 @@ export class UserBetRepository {
         yearAgo.setFullYear(yearAgo.getFullYear() - 1);
         return this.countByPeriod(yearAgo, today);
     }
+
+    async findByEventId(eventId: number): Promise<UserBet[]> {
+        return this.repository.find({
+            where: { bet_event_id: eventId },
+            relations: ['user']
+        });
+    }
 }
 

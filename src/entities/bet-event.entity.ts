@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-export type BetEventStatus = 'active' | 'awaiting_review' | 'completed' | 'cancelled';
+export type BetEventStatus = 'active' | 'completed' | 'cancelled';
 
 @Entity('bet_events')
 export class BetEvent {
@@ -16,11 +16,17 @@ export class BetEvent {
     @Column({ type: 'integer' })
     bet_amount!: number;
 
+    @Column({ type: 'decimal', precision: 10, scale: 2 })
+    coefficient!: number;
+
     @Column({ type: 'timestamp', name: 'match_started_at' })
     match_started_at!: Date;
 
     @Column({ type: 'varchar', length: 255, nullable: true, name: 'file_id' })
     file_id!: string | null;
+
+    @Column({ type: 'boolean', nullable: true, name: 'is_won' })
+    is_won!: boolean | null;
 
     @Column({ type: 'varchar', length: 20, default: 'active' })
     status!: BetEventStatus;

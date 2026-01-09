@@ -1,6 +1,6 @@
 import { Context } from 'telegraf';
 import { BetEventService } from '../services/bet-event.service.js';
-import { GiveawayService } from '../services/giveaway.service.js';
+import { ContestService } from '../services/contest.service.js';
 import { BroadcastService } from '../services/broadcast.service.js';
 import { UserService } from '../services/user.service.js';
 import { createPaginationKeyboard } from '../utils/pagination.js';
@@ -10,7 +10,7 @@ import { AppDataSource } from '../config/db.js';
 import { Telegraf } from 'telegraf';
 
 interface AdminSession {
-    state?: 'creating_event' | 'creating_giveaway' | 'creating_broadcast' | 'editing_event' | 'editing_giveaway' | null;
+    state?: 'creating_event' | 'creating_contest' | 'creating_broadcast' | 'editing_event' | 'editing_contest' | null;
     data?: any;
 }
 
@@ -18,7 +18,7 @@ const sessions = new Map<number, AdminSession>();
 
 export class AdminHandlers {
     private betEventService = new BetEventService();
-    private giveawayService = new GiveawayService();
+    private contestService = new ContestService();
     private broadcastService = new BroadcastService();
     private userService = new UserService();
     private bot: Telegraf;
@@ -40,7 +40,7 @@ export class AdminHandlers {
     }
 
     async handleEvents(ctx: Context) {
-        await updateOrSendMessage(ctx, 'Управление событиями', {
+        await updateOrSendMessage(ctx, 'Управление матчами', {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Создать', callback_data: 'admin:event:create' }],
@@ -55,7 +55,13 @@ export class AdminHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: 'creating_event', data: {} });
-        await ctx.reply('Отправьте информацию о событии одним сообщением в формате:\nНазвание матча\nКоманда для ставки\nСумма ставки\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)\nФото (опционально)');
+        await ctx.reply('Отправьте информацию о событии одним сообщением в формате:\nНазвание матча\nИсход матча\nСумма ставки\nКоэффициент\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)\nФото (опционально)', {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Отменить', callback_data: 'admin:event:create_cancel' }]
+                ]
+            }
+        });
     }
 
     async handleEventList(ctx: Context, page: number = 1) {
@@ -67,7 +73,13 @@ export class AdminHandlers {
         const totalPages = Math.ceil(events.length / limit);
 
         if (pageEvents.length === 0) {
-            await ctx.reply('Нет событий');
+            await updateOrSendMessage(ctx, 'Нет событий', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Главное меню', callback_data: 'admin:event:others' }]
+                    ]
+                }
+            });
             return;
         }
 
@@ -78,8 +90,9 @@ export class AdminHandlers {
 
         const pagination = createPaginationKeyboard(page, totalPages, 'admin:event:list');
         keyboard.push(...pagination.inline_keyboard);
+        keyboard.push([{ text: 'Главное меню', callback_data: 'admin:event:others' }]);
 
-        await updateOrSendMessage(ctx, 'Выберите событие:', {
+        await updateOrSendMessage(ctx, 'Выберите матч:', {
             reply_markup: { inline_keyboard: keyboard }
         });
     }
@@ -93,16 +106,18 @@ export class AdminHandlers {
 
         const participantsCount = await this.betEventService.getParticipantsCount(eventId);
         
-        let message = `*Событие «${event.match_name}»*\n`;
+        let message = `*Матч «${event.match_name}»*\n`;
         message += `Количество участников: ${participantsCount}\n`;
-        message += `Команда для ставки: ${event.winner_team}\n`;
+        message += `Исход матча: ${event.winner_team}\n`;
         message += `Сумма ставки: ${event.bet_amount}\n`;
+        message += `Коэффициент: ${event.coefficient}\n`;
         message += `Дата начала матча: ${formatDate(event.match_started_at)}`;
 
         const keyboard: any[] = [];
         
-        if (event.status === 'awaiting_review') {
-            keyboard.push([{ text: 'Узнать результаты', callback_data: `admin:event:results:${eventId}` }]);
+        const now = new Date();
+        if (event.match_started_at <= now && event.is_won === null) {
+            keyboard.push([{ text: 'Выбрать исход матча', callback_data: `admin:event:pick_outcome:${eventId}` }]);
         }
         
         keyboard.push(
@@ -138,11 +153,11 @@ export class AdminHandlers {
             return;
         }
 
-        let message = `*Событие «${event.match_name}»*\n\n`;
+        let message = `*Матч «${event.match_name}»*\n\n`;
         result.participants.forEach((p, index) => {
             const num = (page - 1) * 20 + index + 1;
             const username = p.user.username ? `@${p.user.username}` : 'пользователь';
-            message += `${num}) ${username} (ID Betboom: ${p.user.betboom_id}) - ${p.ticket_id}\n`;
+            message += `${num}) ${username} (ID BetBoom: ${p.user.betboom_id}) - ${p.ticket_id}\n`;
         });
 
         const pagination = createPaginationKeyboard(page, result.totalPages, `admin:event:results:${eventId}`);
@@ -165,8 +180,9 @@ export class AdminHandlers {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Название матча', callback_data: `admin:event:edit_field:${eventId}:match_name` }],
-                    [{ text: 'Команда для ставки', callback_data: `admin:event:edit_field:${eventId}:winner_team` }],
+                    [{ text: 'Исход матча', callback_data: `admin:event:edit_field:${eventId}:winner_team` }],
                     [{ text: 'Сумму ставки', callback_data: `admin:event:edit_field:${eventId}:bet_amount` }],
+                    [{ text: 'Коэффициент', callback_data: `admin:event:edit_field:${eventId}:coefficient` }],
                     [{ text: 'Дату начала матча', callback_data: `admin:event:edit_field:${eventId}:match_started_at` }],
                     [{ text: 'Фото', callback_data: `admin:event:edit_field:${eventId}:file_id` }],
                     [{ text: 'Отменить', callback_data: `admin:event:view:${eventId}` }]
@@ -193,178 +209,325 @@ export class AdminHandlers {
     }
 
     async handleEventDeleteConfirm(ctx: Context, eventId: number) {
+        const event = await this.betEventService.getEventById(eventId);
         await this.betEventService.cancelEvent(eventId);
-        await ctx.reply('Событие удалено');
+        await ctx.reply(`Матч «${event?.match_name || ''}» для события удален`);
         await this.handleEventList(ctx);
     }
 
     async handleGiveaways(ctx: Context) {
-        await updateOrSendMessage(ctx, 'Управление розыгрышами', {
+        const keyboard: any[] = [
+            [{ text: 'Создать', callback_data: 'admin:contest:create' }],
+            [{ text: 'Общая информация', callback_data: 'admin:contest:list' }]
+        ];
+
+        const canFinalize = await this.contestService.canFinalizeContests();
+        if (canFinalize) {
+            keyboard.push([{ text: 'Подвести итог', callback_data: 'admin:contest:finalize' }]);
+        }
+
+        await updateOrSendMessage(ctx, 'Управление матчами', {
+            reply_markup: {
+                inline_keyboard: keyboard
+            }
+        });
+    }
+
+    async handleContestCreate(ctx: Context) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        sessions.set(chatId, { state: 'creating_contest', data: {} });
+        await ctx.reply('Отправьте информацию о розыгрыше одним сообщением в формате:\nНазвание матча\nКоманда 1\nКоманда 2\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)', {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Создать', callback_data: 'admin:giveaway:create' }],
-                    [{ text: 'Общая информация', callback_data: 'admin:giveaway:list' }]
+                    [{ text: 'Отменить', callback_data: 'admin:contest:create_cancel' }]
                 ]
             }
         });
     }
 
-    async handleGiveawayCreate(ctx: Context) {
-        const chatId = ctx.from?.id;
-        if (!chatId) return;
-
-        sessions.set(chatId, { state: 'creating_giveaway', data: {} });
-        await ctx.reply('Отправьте информацию о розыгрыше одним сообщением в формате:\nТекст\nКоличество победителей\nДата завершения (ДД.ММ.ГГГГ ЧЧ:ММ)\nФото (опционально)');
-    }
-
-    async handleGiveawayList(ctx: Context, page: number = 1) {
-        const giveaways = await this.giveawayService.getGiveawaysForAdmin();
+    async handleContestList(ctx: Context, page: number = 1) {
+        const contests = await this.contestService.getContestsForAdmin();
         const limit = 20;
         const start = (page - 1) * limit;
         const end = start + limit;
-        const pageGiveaways = giveaways.slice(start, end);
-        const totalPages = Math.ceil(giveaways.length / limit);
+        const pageContests = contests.slice(start, end);
+        const totalPages = Math.ceil(contests.length / limit);
 
-        if (pageGiveaways.length === 0) {
-            await ctx.reply('Нет розыгрышей');
+        if (pageContests.length === 0) {
+            await updateOrSendMessage(ctx, 'Нет розыгрышей', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Главное меню', callback_data: 'admin:contest:others' }]
+                    ]
+                }
+            });
             return;
         }
 
-        const keyboard: any[] = pageGiveaways.map(giveaway => [{
-            text: `Розыгрыш №${giveaway.id}`,
-            callback_data: `admin:giveaway:view:${giveaway.id}`
+        const keyboard: any[] = pageContests.map(contest => [{
+            text: `${contest.match_name}`,
+            callback_data: `admin:contest:view:${contest.id}`
         }]);
 
-        const pagination = createPaginationKeyboard(page, totalPages, 'admin:giveaway:list');
+        const pagination = createPaginationKeyboard(page, totalPages, 'admin:contest:list');
         keyboard.push(...pagination.inline_keyboard);
+        keyboard.push([{ text: 'Главное меню', callback_data: 'admin:contest:others' }]);
 
-        await updateOrSendMessage(ctx, 'Выберите розыгрыш:', {
+        await updateOrSendMessage(ctx, 'Выберите матч:', {
             reply_markup: { inline_keyboard: keyboard }
         });
     }
 
-    async handleGiveawayView(ctx: Context, giveawayId: number) {
-        const giveaway = await this.giveawayService.getGiveawayById(giveawayId);
-        if (!giveaway) {
+
+    async handleCancel(ctx: Context) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const session = sessions.get(chatId);
+        if (!session || !session.state) return;
+
+        await ctx.deleteMessage().catch(() => {});
+
+        if (session.state === 'creating_event') {
+            sessions.set(chatId, { state: null });
+            await updateOrSendMessage(ctx, 'Создание события отменено');
+            await this.handleEvents(ctx);
+        } else if (session.state === 'creating_contest') {
+            sessions.set(chatId, { state: null });
+            await updateOrSendMessage(ctx, 'Создание розыгрыша отменено');
+            await this.handleGiveaways(ctx);
+        } else if (session.state === 'creating_broadcast') {
+            sessions.set(chatId, { state: null });
+            await updateOrSendMessage(ctx, 'Создание рассылки отменено');
+            await this.handleBroadcasts(ctx);
+        } else if (session.state === 'editing_event' && session.data?.eventId) {
+            sessions.set(chatId, { state: null });
+            await updateOrSendMessage(ctx, 'Редактирование отменено');
+            await this.handleEventView(ctx, session.data.eventId);
+        } else if (session.state === 'editing_contest' && session.data?.contestId) {
+            sessions.set(chatId, { state: null });
+            await updateOrSendMessage(ctx, 'Редактирование отменено');
+            await this.handleContestView(ctx, session.data.contestId);
+        } else {
+            sessions.set(chatId, { state: null });
+        }
+    }
+
+    async handleEventOthers(ctx: Context) {
+        await this.handleEvents(ctx);
+    }
+
+    async handleContestOthers(ctx: Context) {
+        await this.handleGiveaways(ctx);
+    }
+
+    async handleEventCreateCancel(ctx: Context) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        sessions.set(chatId, { state: null });
+        await ctx.answerCbQuery();
+        await this.showAdminMenu(ctx);
+    }
+
+    async handleContestCreateCancel(ctx: Context) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        sessions.set(chatId, { state: null });
+        await ctx.answerCbQuery();
+        await this.showAdminMenu(ctx);
+    }
+
+    async handleContestView(ctx: Context, contestId: number) {
+        const contest = await this.contestService.getContestById(contestId);
+        if (!contest) {
             await ctx.reply('Розыгрыш не найден');
             return;
         }
 
-        const participants = await this.giveawayService.getParticipants(giveawayId);
-        
-        let message = `*Розыгрыш №${giveawayId}*\n`;
-        message += `Количество участников: ${participants.length}\n`;
-        message += `Текст: "${giveaway.caption}"\n`;
-        message += `Дата завершения: ${formatDate(giveaway.ended_at)}`;
+        let message = `*Матч «${contest.match_name}»*\n`;
+        message += `Дата начала матча: ${formatDate(contest.match_started_at)}\n`;
+        if (contest.picked_outcome) {
+            const outcomeNames: Record<string, string> = {
+                'team_1_win': `Победа «${contest.team_1}»`,
+                'team_2_win': `Победа «${contest.team_2}»`,
+                'draw': 'Ничья'
+            };
+            message += `Исход матча: ${outcomeNames[contest.picked_outcome] || contest.picked_outcome}\n`;
+        }
 
         const keyboard: any[] = [];
         
-        if (giveaway.status === 'awaiting_review') {
-            keyboard.push([{ text: 'Узнать результаты', callback_data: `admin:giveaway:results:${giveawayId}` }]);
+        const now = new Date();
+        if (contest.match_started_at <= now && contest.picked_outcome === null) {
+            keyboard.push([{ text: 'Выбрать исход матча', callback_data: `admin:contest:pick_outcome:${contestId}` }]);
         }
         
         keyboard.push(
-            [{ text: 'Изменить', callback_data: `admin:giveaway:edit:${giveawayId}` }, { text: 'Удалить', callback_data: `admin:giveaway:delete:${giveawayId}` }],
-            [{ text: 'К списку', callback_data: 'admin:giveaway:list' }]
+            [{ text: 'Изменить', callback_data: `admin:contest:edit:${contestId}` }, { text: 'Удалить', callback_data: `admin:contest:delete:${contestId}` }],
+            [{ text: 'К списку', callback_data: 'admin:contest:list' }]
         );
 
-        if (giveaway.file_id) {
-            await updateOrSendMessage(ctx, message, {
-                reply_markup: { inline_keyboard: keyboard },
-                photo: giveaway.file_id
-            });
-        } else {
-            await updateOrSendMessage(ctx, message, {
-                reply_markup: { inline_keyboard: keyboard }
-            });
-        }
+        await updateOrSendMessage(ctx, message, {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: keyboard }
+        });
     }
 
-    async handleGiveawayResults(ctx: Context, giveawayId: number) {
-        const giveaway = await this.giveawayService.getGiveawayById(giveawayId);
-        if (!giveaway) {
+    async handleContestEdit(ctx: Context, contestId: number) {
+        const contest = await this.contestService.getContestById(contestId);
+        if (!contest) {
             await ctx.reply('Розыгрыш не найден');
             return;
         }
 
-        const winners = await this.giveawayService.getWinners(giveawayId);
-        
-        if (winners.length === 0) {
-            try {
-                await this.giveawayService.selectWinners(giveawayId);
-                const result = await this.giveawayService.getResults(giveawayId);
-                await this.giveawayService.sendGiveawayNotification(giveawayId, this.bot);
-                
-                let message = '';
-                if (result.winners.length === 1) {
-                    const winner = result.winners[0];
-                    message = `*Победитель розыгрыша №${giveawayId}:* @${winner.username || 'пользователь'}`;
-                } else {
-                    message = `*Победители розыгрыша №${giveawayId}:*\n`;
-                    result.winners.forEach((winner, index) => {
-                        message += `${index + 1}) @${winner.username || 'пользователь'}\n`;
-                    });
-                }
-
-                await ctx.reply(message, { parse_mode: 'Markdown' });
-            } catch (error: any) {
-                await ctx.reply(error.message || 'Ошибка при выборе победителей');
-            }
-        } else {
-            let message = '';
-            if (winners.length === 1) {
-                message = `*Победитель розыгрыша №${giveawayId}:* @${winners[0].username || 'пользователь'}`;
-            } else {
-                message = `*Победители розыгрыша №${giveawayId}:*\n`;
-                winners.forEach((winner, index) => {
-                    message += `${index + 1}) @${winner.username || 'пользователь'}\n`;
-                });
-            }
-
-            await ctx.reply(message, { parse_mode: 'Markdown' });
-        }
-    }
-
-    async handleGiveawayEdit(ctx: Context, giveawayId: number) {
-        const giveaway = await this.giveawayService.getGiveawayById(giveawayId);
-        if (!giveaway) {
-            await ctx.reply('Розыгрыш не найден');
-            return;
-        }
-
-        await updateOrSendMessage(ctx, `Что хотите изменить в розыгрыше №${giveawayId}?`, {
+        await updateOrSendMessage(ctx, `Что хотите изменить в розыгрыше «${contest.match_name}»?`, {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Текст', callback_data: `admin:giveaway:edit_field:${giveawayId}:caption` }],
-                    [{ text: 'Количество победителей', callback_data: `admin:giveaway:edit_field:${giveawayId}:winners_count` }],
-                    [{ text: 'Дату завершения', callback_data: `admin:giveaway:edit_field:${giveawayId}:ended_at` }],
-                    [{ text: 'Фото', callback_data: `admin:giveaway:edit_field:${giveawayId}:file_id` }],
-                    [{ text: 'Отменить', callback_data: `admin:giveaway:view:${giveawayId}` }]
+                    [{ text: 'Название матча', callback_data: `admin:contest:edit_field:${contestId}:match_name` }],
+                    [{ text: 'Команда 1', callback_data: `admin:contest:edit_field:${contestId}:team_1` }],
+                    [{ text: 'Команда 2', callback_data: `admin:contest:edit_field:${contestId}:team_2` }],
+                    [{ text: 'Дату начала матча', callback_data: `admin:contest:edit_field:${contestId}:match_started_at` }],
+                    [{ text: 'Отменить', callback_data: `admin:contest:view:${contestId}` }]
                 ]
             }
         });
     }
 
-    async handleGiveawayDelete(ctx: Context, giveawayId: number) {
-        const giveaway = await this.giveawayService.getGiveawayById(giveawayId);
-        if (!giveaway) {
+    async handleContestDelete(ctx: Context, contestId: number) {
+        const contest = await this.contestService.getContestById(contestId);
+        if (!contest) {
             await ctx.reply('Розыгрыш не найден');
             return;
         }
 
-        await updateOrSendMessage(ctx, `Точно ли хотите удалить розыгрыш №${giveawayId}?`, {
+        await updateOrSendMessage(ctx, `Точно ли хотите удалить розыгрыш «${contest.match_name}»?`, {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Да', callback_data: `admin:giveaway:delete_confirm:${giveawayId}` }, { text: 'Нет', callback_data: `admin:giveaway:view:${giveawayId}` }]
+                    [{ text: 'Да', callback_data: `admin:contest:delete_confirm:${contestId}` }, { text: 'Нет', callback_data: `admin:contest:view:${contestId}` }]
                 ]
             }
         });
     }
 
-    async handleGiveawayDeleteConfirm(ctx: Context, giveawayId: number) {
-        await this.giveawayService.cancelGiveaway(giveawayId);
-        await ctx.reply('Розыгрыш удален');
-        await this.handleGiveawayList(ctx);
+    async handleContestDeleteConfirm(ctx: Context, contestId: number) {
+        const contest = await this.contestService.getContestById(contestId);
+        await this.contestService.cancelContest(contestId);
+        await ctx.reply(`Матч «${contest?.match_name || ''}» для розыгрыша удален`);
+        await this.handleContestList(ctx);
+    }
+
+    async handleContestPickOutcome(ctx: Context, contestId: number) {
+        const contest = await this.contestService.getContestById(contestId);
+        if (!contest) {
+            await ctx.answerCbQuery('Розыгрыш не найден', { show_alert: true });
+            return;
+        }
+
+        await updateOrSendMessage(ctx, `Выберите исход матча «${contest.match_name}»:`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: `Победа «${contest.team_1}»`, callback_data: `admin:contest:set_outcome:${contestId}:team_1_win` }],
+                    [{ text: 'Ничья', callback_data: `admin:contest:set_outcome:${contestId}:draw` }],
+                    [{ text: `Победа «${contest.team_2}»`, callback_data: `admin:contest:set_outcome:${contestId}:team_2_win` }],
+                    [{ text: 'Отменить', callback_data: `admin:contest:view:${contestId}` }]
+                ]
+            }
+        });
+    }
+
+    async handleContestSetOutcome(ctx: Context, contestId: number, outcome: string) {
+        try {
+            await this.contestService.setContestOutcome(contestId, outcome as any);
+            await ctx.answerCbQuery('Исход матча установлен');
+            await this.handleContestList(ctx);
+        } catch (error: any) {
+            await ctx.answerCbQuery(error.message || 'Ошибка', { show_alert: true });
+        }
+    }
+
+    async handleContestFinalize(ctx: Context) {
+        try {
+            await this.contestService.finalizeContests(this.bot);
+            await ctx.reply('Итоги розыгрыша подведены');
+        } catch (error: any) {
+            await ctx.reply(error.message || 'Ошибка при подведении итогов');
+        }
+    }
+
+    async handleEventPickOutcome(ctx: Context, eventId: number) {
+        const event = await this.betEventService.getEventById(eventId);
+        if (!event) {
+            await ctx.answerCbQuery('Событие не найдено', { show_alert: true });
+            return;
+        }
+
+        await updateOrSendMessage(ctx, `Выберите исход матча «${event.match_name}»:`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Ставка сыграла', callback_data: `admin:event:set_outcome:${eventId}:won` }],
+                    [{ text: 'Ставка не сыграла', callback_data: `admin:event:set_outcome:${eventId}:lost` }],
+                    [{ text: 'Отменить', callback_data: `admin:event:view:${eventId}` }]
+                ]
+            }
+        });
+    }
+
+    async handleEventSetOutcome(ctx: Context, eventId: number, outcome: string) {
+        try {
+            const isWon = outcome === 'won';
+            await this.betEventService.setEventOutcome(eventId, isWon);
+            await this.betEventService.sendEventResultsToUsers(eventId, this.bot);
+            await ctx.answerCbQuery('Исход матча установлен');
+            await this.handleEventList(ctx);
+        } catch (error: any) {
+            await ctx.answerCbQuery(error.message || 'Ошибка', { show_alert: true });
+        }
+    }
+
+    async handleContestEditField(ctx: Context, contestId: number, field: string) {
+        const contest = await this.contestService.getContestById(contestId);
+        if (!contest) {
+            await ctx.answerCbQuery('Розыгрыш не найден', { show_alert: true });
+            return;
+        }
+
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const fieldNames: Record<string, string> = {
+            match_name: 'Название матча',
+            team_1: 'Команда 1',
+            team_2: 'Команда 2',
+            match_started_at: 'Дата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)'
+        };
+
+        sessions.set(chatId, { 
+            state: 'editing_contest', 
+            data: { contestId, field } 
+        });
+
+        const prompt = `Введите новое значение для «${fieldNames[field] || field}»:`;
+
+        await updateOrSendMessage(ctx, prompt, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Отменить', callback_data: `admin:contest:edit_cancel:${contestId}` }]
+                ]
+            }
+        });
+    }
+
+    async handleContestEditCancel(ctx: Context, contestId: number) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        sessions.set(chatId, { state: null });
+        await ctx.deleteMessage().catch(() => {});
+        await this.handleContestView(ctx, contestId);
     }
 
     async handleBroadcasts(ctx: Context) {
@@ -372,13 +535,18 @@ export class AdminHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: 'creating_broadcast', data: {} });
-        await ctx.reply('Отправьте текст рассылки (опционально) и/или фото');
+        await updateOrSendMessage(ctx, 'Отправьте текст рассылки (опционально) и/или фото', {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Отменить', callback_data: 'admin:cancel' }]
+                ]
+            }
+        });
     }
 
     async handleStatistics(ctx: Context) {
         const stats = await this.userService.getStatistics();
         const events = await this.betEventService.getEventsForAdmin();
-        const giveaways = await this.giveawayService.getGiveawaysForAdmin();
         const participantsStats = await this.betEventService.getParticipantsStats();
 
         let message = '*Количество зарегистрированных пользователей за*\n';
@@ -398,21 +566,22 @@ export class AdminHandlers {
             message += `Количество участников в событии «${event.match_name}»: ${count}\n`;
         }
 
-        for (const giveaway of giveaways) {
-            const giveawayParticipants = await this.giveawayService.getParticipants(giveaway.id);
-            message += `Количество участников в розыгрыше №${giveaway.id}: ${giveawayParticipants.length}\n`;
-        }
-
-        if (events.length > 0 || giveaways.length > 0) {
+        if (events.length > 0) {
             message += '\n';
         }
 
-        if (stats.topUsers.length > 0) {
-            message += '*Топ 10 пользователей:*\n';
-            stats.topUsers.forEach((item, index) => {
+        const totalContestParticipants = await this.contestService.getTotalParticipantsCount();
+        message += `Количество участников в розыгрыше: ${totalContestParticipants}\n\n`;
+
+        const topContestUsers = stats.topContestUsers || [];
+        if (topContestUsers.length > 0) {
+            message += '*Топ-20 пользователей:*\n';
+            topContestUsers.forEach((item: any, index: number) => {
                 const username = item.user.username ? `@${item.user.username}` : 'пользователь';
-                message += `${index + 1}) ${username} (ID Betboom: ${item.user.betboom_id})\n`;
+                message += `${index + 1}) ${username} (BetBoom ID: ${item.user.betboom_id}) - ${item.points}\n`;
             });
+        } else {
+            message += '*Топ-20 пользователей:*\nНет пользователей\n';
         }
 
         await ctx.reply(message, { parse_mode: 'Markdown' });
@@ -428,10 +597,14 @@ export class AdminHandlers {
 
         if (session?.state === 'creating_event') {
             await this.processEventCreation(ctx, text, photo);
-        } else if (session?.state === 'creating_giveaway') {
-            await this.processGiveawayCreation(ctx, text, photo);
+        } else if (session?.state === 'creating_contest') {
+            await this.processContestCreation(ctx, text);
         } else if (session?.state === 'creating_broadcast') {
             await this.processBroadcastCreation(ctx, text, photo);
+        } else if (session?.state === 'editing_event') {
+            await this.processEventEdit(ctx, text, photo, session);
+        } else if (session?.state === 'editing_contest') {
+            await this.processContestEdit(ctx, text, session);
         }
     }
 
@@ -440,24 +613,25 @@ export class AdminHandlers {
         if (!chatId || !text) return;
 
         const lines = text.split('\n').filter(l => l.trim());
-        if (lines.length < 4) {
-            await ctx.reply('Неверный формат. Отправьте:\nНазвание матча\nКоманда для ставки\nСумма ставки\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)');
+        if (lines.length < 5) {
+            await ctx.reply('Неверный формат. Отправьте:\nНазвание матча\nИсход матча\nСумма ставки\nКоэффициент\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)');
             return;
         }
 
-        const [matchName, winnerTeam, betAmountStr, dateStr] = lines;
+        const [matchName, winnerTeam, betAmountStr, coefficientStr, dateStr] = lines;
         const betAmount = parseInt(betAmountStr);
+        const coefficient = parseFloat(coefficientStr);
         const matchStartedAt = parseDate(dateStr);
 
-        if (isNaN(betAmount) || !matchStartedAt) {
-            await ctx.reply('Неверный формат суммы ставки или даты');
+        if (isNaN(betAmount) || isNaN(coefficient) || !matchStartedAt) {
+            await ctx.reply('Неверный формат суммы ставки, коэффициента или даты');
             return;
         }
 
         const fileId = photo ? photo[photo.length - 1].file_id : null;
 
         try {
-            const event = await this.betEventService.createEvent(matchName, winnerTeam, betAmount, matchStartedAt, fileId);
+            const event = await this.betEventService.createEvent(matchName, winnerTeam, betAmount, coefficient, matchStartedAt, fileId);
             
             const { User } = await import('../entities/index.js');
             const userRepository = AppDataSource.getRepository(User);
@@ -465,8 +639,9 @@ export class AdminHandlers {
             for (const userRow of allUsers) {
                 try {
                     let message = `*Новое событие: «${event.match_name}»*\n`;
-                    message += `Команда для ставки: ${event.winner_team}\n`;
+                    message += `Исход матча: ${event.winner_team}\n`;
                     message += `Сумма ставки: ${event.bet_amount}\n`;
+                    message += `Коэффициент: ${event.coefficient}\n`;
                     message += `Дата начала: ${formatDate(event.match_started_at)}`;
 
                     if (fileId) {
@@ -486,62 +661,34 @@ export class AdminHandlers {
                 }
             }
 
-            await ctx.reply('Событие создано и отправлено пользователям');
+            await ctx.reply(`Матч «${event.match_name}» для события создан и отправлен пользователям`);
             sessions.set(chatId, { state: null });
         } catch (error: any) {
             await ctx.reply(error.message || 'Ошибка при создании события');
         }
     }
 
-    private async processGiveawayCreation(ctx: Context, text: string | undefined, photo: any) {
+    private async processContestCreation(ctx: Context, text: string | undefined) {
         const chatId = ctx.from?.id;
         if (!chatId || !text) return;
 
         const lines = text.split('\n').filter(l => l.trim());
-        if (lines.length < 3) {
-            await ctx.reply('Неверный формат. Отправьте:\nТекст\nКоличество победителей\nДата завершения (ДД.ММ.ГГГГ ЧЧ:ММ)');
+        if (lines.length < 4) {
+            await ctx.reply('Неверный формат. Отправьте:\nНазвание матча\nКоманда 1\nКоманда 2\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)');
             return;
         }
 
-        const [caption, winnersCountStr, dateStr] = lines;
-        const winnersCount = parseInt(winnersCountStr);
-        const endedAt = parseDate(dateStr);
+        const [matchName, team1, team2, dateStr] = lines;
+        const matchStartedAt = parseDate(dateStr);
 
-        if (isNaN(winnersCount) || !endedAt) {
-            await ctx.reply('Неверный формат количества победителей или даты');
+        if (!matchStartedAt) {
+            await ctx.reply('Неверный формат даты');
             return;
         }
-
-        const fileId = photo ? photo[photo.length - 1].file_id : null;
 
         try {
-            const giveaway = await this.giveawayService.createGiveaway(caption, winnersCount, endedAt, fileId);
-            
-            const { User } = await import('../entities/index.js');
-            const userRepository = AppDataSource.getRepository(User);
-            const allUsers = await userRepository.find({ select: ['chat_id'] });
-            for (const userRow of allUsers) {
-                try {
-                    let message = `Новый розыгрыш!\n${giveaway.caption}\n`;
-                    message += `Дата завершения: ${formatDate(giveaway.ended_at)}`;
-
-                    if (fileId) {
-                        await this.bot.telegram.sendPhoto(userRow.chat_id, fileId, {
-                            caption: message
-                        });
-                    } else {
-                        await this.bot.telegram.sendMessage(userRow.chat_id, message);
-                    }
-
-                    if (allUsers.indexOf(userRow) % 30 === 0 && allUsers.indexOf(userRow) > 0) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                } catch (error) {
-                    console.error(`Failed to send giveaway notification:`, error);
-                }
-            }
-
-            await ctx.reply('Розыгрыш создан и отправлен пользователям');
+            await this.contestService.createContest(matchName, team1, team2, matchStartedAt);
+            await ctx.reply(`Матч «${matchName}» для розыгрыша создан`);
             sessions.set(chatId, { state: null });
         } catch (error: any) {
             await ctx.reply(error.message || 'Ошибка при создании розыгрыша');
@@ -567,5 +714,173 @@ export class AdminHandlers {
             await ctx.reply(error.message || 'Ошибка при создании рассылки');
         }
     }
+
+    private async processEventEdit(ctx: Context, text: string | undefined, photo: any, session: AdminSession) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const { eventId, field } = session.data || {};
+        if (!eventId || !field) {
+            await ctx.reply('Ошибка: данные сессии не найдены');
+            sessions.set(chatId, { state: null });
+            return;
+        }
+
+        const event = await this.betEventService.getEventById(eventId);
+        if (!event) {
+            await ctx.reply('Событие не найдено');
+            sessions.set(chatId, { state: null });
+            return;
+        }
+
+        let updateData: any = {};
+
+        if (field === 'file_id') {
+            if (!photo) {
+                await ctx.reply('Отправьте фото');
+                return;
+            }
+            updateData.file_id = photo[photo.length - 1].file_id;
+        } else {
+            if (!text) {
+                await ctx.reply('Введите значение');
+                return;
+            }
+
+            if (field === 'match_name') {
+                updateData.match_name = text;
+            } else if (field === 'winner_team') {
+                updateData.winner_team = text;
+            } else if (field === 'bet_amount') {
+                const betAmount = parseInt(text);
+                if (isNaN(betAmount)) {
+                    await ctx.reply('Неверный формат суммы ставки');
+                    return;
+                }
+                updateData.bet_amount = betAmount;
+            } else if (field === 'coefficient') {
+                const coefficient = parseFloat(text);
+                if (isNaN(coefficient)) {
+                    await ctx.reply('Неверный формат коэффициента');
+                    return;
+                }
+                updateData.coefficient = coefficient;
+            } else if (field === 'match_started_at') {
+                const matchStartedAt = parseDate(text);
+                if (!matchStartedAt) {
+                    await ctx.reply('Неверный формат даты. Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
+                    return;
+                }
+                updateData.match_started_at = matchStartedAt;
+            }
+        }
+
+        try {
+            await this.betEventService.updateEvent(eventId, updateData);
+            const updatedEvent = await this.betEventService.getEventById(eventId);
+            await ctx.reply(`Матч «${updatedEvent?.match_name || ''}» для события изменен`);
+            sessions.set(chatId, { state: null });
+            await this.handleEventView(ctx, eventId);
+        } catch (error: any) {
+            await ctx.reply(error.message || 'Ошибка при обновлении события');
+        }
+    }
+
+    private async processContestEdit(ctx: Context, text: string | undefined, session: AdminSession) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const { contestId, field } = session.data || {};
+        if (!contestId || !field) {
+            await ctx.reply('Ошибка: данные сессии не найдены');
+            sessions.set(chatId, { state: null });
+            return;
+        }
+
+        const contest = await this.contestService.getContestById(contestId);
+        if (!contest) {
+            await ctx.reply('Розыгрыш не найден');
+            sessions.set(chatId, { state: null });
+            return;
+        }
+
+        let updateData: any = {};
+
+        if (!text) {
+            await ctx.reply('Введите значение');
+            return;
+        }
+
+        if (field === 'match_name') {
+            updateData.match_name = text;
+        } else if (field === 'team_1') {
+            updateData.team_1 = text;
+        } else if (field === 'team_2') {
+            updateData.team_2 = text;
+        } else if (field === 'match_started_at') {
+            const matchStartedAt = parseDate(text);
+            if (!matchStartedAt) {
+                await ctx.reply('Неверный формат даты. Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
+                return;
+            }
+            updateData.match_started_at = matchStartedAt;
+        }
+
+        try {
+            await this.contestService.updateContest(contestId, updateData);
+            const updatedContest = await this.contestService.getContestById(contestId);
+            await ctx.reply(`Матч «${updatedContest?.match_name || ''}» для розыгрыша изменен`);
+            sessions.set(chatId, { state: null });
+            await this.handleContestView(ctx, contestId);
+        } catch (error: any) {
+            await ctx.reply(error.message || 'Ошибка при обновлении розыгрыша');
+        }
+    }
+
+    async handleEventEditField(ctx: Context, eventId: number, field: string) {
+        const event = await this.betEventService.getEventById(eventId);
+        if (!event) {
+            await ctx.answerCbQuery('Событие не найдено', { show_alert: true });
+            return;
+        }
+
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const fieldNames: Record<string, string> = {
+            match_name: 'Название матча',
+            winner_team: 'Исход матча',
+            bet_amount: 'Сумма ставки',
+            coefficient: 'Коэффициент',
+            match_started_at: 'Дата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)',
+            file_id: 'Фото'
+        };
+
+        sessions.set(chatId, { 
+            state: 'editing_event', 
+            data: { eventId, field } 
+        });
+
+        const prompt = `Введите новое значение для «${fieldNames[field] || field}»:`;
+
+        await updateOrSendMessage(ctx, prompt, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Отменить', callback_data: `admin:event:edit_cancel:${eventId}` }]
+                ]
+            }
+        });
+    }
+
+
+    async handleEventEditCancel(ctx: Context, eventId: number) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        sessions.set(chatId, { state: null });
+        await ctx.deleteMessage().catch(() => {});
+        await this.handleEventView(ctx, eventId);
+    }
+
 }
 

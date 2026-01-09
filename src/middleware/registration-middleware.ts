@@ -38,7 +38,7 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
             }
 
             registrationSessions.set(ctx.from.id, { state: 'registering' });
-            await updateOrSendMessage(ctx, 'Введите свой Betboom ID');
+            await updateOrSendMessage(ctx, 'Введите свой BetBoom ID');
             return;
         }
 
@@ -57,14 +57,14 @@ export const handleRegistration = async (ctx: Context): Promise<boolean> => {
     const betboomId = (ctx.message as any).text?.trim();
     
     if (!betboomId || !/^\d{1,12}$/.test(betboomId)) {
-        await updateOrSendMessage(ctx, 'Betboom ID должен содержать от 1 до 12 цифр. Попробуйте снова:');
+        await updateOrSendMessage(ctx, 'BetBoom ID должен содержать от 1 до 12 цифр. Попробуйте снова:');
         return true;
     }
 
     const userService = new UserService();
     const isValid = await userService.validateBetboomId(betboomId);
     if (!isValid) {
-        await updateOrSendMessage(ctx, 'Такой Betboom ID уже зарегистрирован. Введите другой:');
+        await updateOrSendMessage(ctx, 'Такой BetBoom ID уже зарегистрирован. Введите другой:');
         return true;
     }
 
@@ -76,18 +76,13 @@ export const handleRegistration = async (ctx: Context): Promise<boolean> => {
         const user = await userService.registerUser(chatId, firstName, lastName, username, betboomId);
         
         const displayName = user.first_name || user.username || 'Пользователь';
-        await updateOrSendMessage(
-            ctx,
-            `*${displayName}*, вы зарегистрированы!`,
-            {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [[
-                        { text: 'Посмотреть активные события для ставки', callback_data: 'menu:events' }
-                    ]]
-                }
-            }
-        );
+        await ctx.reply(`*${displayName}*, вы зарегистрированы!`, {
+            parse_mode: 'Markdown'
+        });
+        
+        const { UserHandlers } = await import('../handlers/user-handlers.js');
+        const userHandlers = new UserHandlers();
+        await userHandlers.showMainMenu(ctx);
         
         registrationSessions.set(chatId, { state: null });
         return true;

@@ -6,11 +6,12 @@ export class BetEventService {
     private eventRepo = new BetEventRepository();
     private betRepo = new UserBetRepository();
 
-    async createEvent(matchName: string, winnerTeam: string, betAmount: number, matchStartedAt: Date, fileId: string | null): Promise<BetEvent> {
+    async createEvent(matchName: string, winnerTeam: string, betAmount: number, coefficient: number, matchStartedAt: Date, fileId: string | null): Promise<BetEvent> {
         return this.eventRepo.create({
             match_name: matchName,
             winner_team: winnerTeam,
             bet_amount: betAmount,
+            coefficient: coefficient,
             match_started_at: matchStartedAt,
             file_id: fileId,
             status: 'active'
@@ -85,7 +86,7 @@ export class BetEventService {
         let message = `Событие "*${event.match_name}*"\n\n`;
         result.participants.forEach((p, index) => {
             const username = p.user.username ? `@${p.user.username}` : 'пользователь';
-            message += `${index + 1}) ${username} (ID Betboom: ${p.user.betboom_id}) - ${p.ticket_id}\n`;
+            message += `${index + 1}) ${username} (ID BetBoom: ${p.user.betboom_id}) - ${p.ticket_id}\n`;
         });
 
         const totalPages = result.totalPages;
@@ -96,6 +97,51 @@ export class BetEventService {
         } else {
             await bot.telegram.sendMessage(adminChatId, message, { parse_mode: 'Markdown' });
         }
+    }
+
+    async sendEventResultsToUsers(eventId: number, bot: any): Promise<void> {
+        const event = await this.getEventById(eventId);
+        if (!event || event.is_won === null) return;
+
+        const bets = await this.betRepo.findByEventId(eventId);
+        const { User } = await import('../entities/index.js');
+        const userRepository = (await import('../config/db.js')).AppDataSource.getRepository(User);
+
+        for (const bet of bets) {
+            try {
+                const user = await userRepository.findOne({ where: { id: bet.user_id } });
+                if (!user) continue;
+
+                let message = '';
+                if (event.is_won) {
+                    message = `Ставка на матч «${event.match_name}» сыграла, поздравляем!`;
+                } else {
+                    message = `Ваша ставка на матч «${event.match_name}» не сыграла, вам будут возвращены *${event.bet_amount}* фрибетов!`;
+                }
+
+                await bot.telegram.sendMessage(user.chat_id, message, { parse_mode: 'Markdown' });
+                
+                if (bets.indexOf(bet) % 30 === 0 && bets.indexOf(bet) > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } catch (error) {
+                console.error(`Failed to send event result to user ${bet.user_id}:`, error);
+            }
+        }
+    }
+
+    async setEventOutcome(eventId: number, isWon: boolean): Promise<void> {
+        const now = new Date();
+        const event = await this.getEventById(eventId);
+        if (!event) {
+            throw new Error('Event not found');
+        }
+
+        if (event.match_started_at > now) {
+            throw new Error('Match has not started yet');
+        }
+
+        await this.eventRepo.update(eventId, { is_won: isWon });
     }
 
     async findFinishedEvents(): Promise<BetEvent[]> {
@@ -109,6 +155,10 @@ export class BetEventService {
             month: await this.betRepo.countThisMonth(),
             year: await this.betRepo.countThisYear()
         };
+    }
+
+    async updateEvent(id: number, updates: Partial<BetEvent>): Promise<BetEvent> {
+        return this.eventRepo.update(id, updates);
     }
 }
 

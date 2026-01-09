@@ -31,11 +31,6 @@ bot.command('help', async (ctx) => {
 
 /start - Запустить бота и показать главное меню
 /help - Показать справку по командам
-
-*Для пользователей:*
-• Регистрация через ввод Betboom ID
-• Участие в событиях через кнопку "События"
-• Просмотр активных событий и отправка ставок
     `;
     
     await ctx.reply(helpText, { parse_mode: 'Markdown' });
@@ -101,8 +96,40 @@ bot.action(/^bet:skip_photo$/, async (ctx) => {
 });
 
 bot.action(/^bet:cancel$/, async (ctx) => {
-    await userHandlers.handleBetCancel(ctx);
     await ctx.answerCbQuery();
+    await userHandlers.handleBetCancel(ctx);
+});
+
+bot.action(/^menu:giveaways$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await userHandlers.handleGiveawaysButton(ctx);
+});
+
+bot.action(/^menu:rating$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await userHandlers.handleRating(ctx);
+});
+
+bot.action(/^menu:back$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await userHandlers.showMainMenu(ctx);
+});
+
+bot.action(/^contest:select:(\d+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const contestId = parseInt(ctx.match[1]);
+    await userHandlers.handleContestSelect(ctx, contestId);
+});
+
+bot.action(/^contest:pick:(\d+):(\w+)$/, async (ctx) => {
+    const contestId = parseInt(ctx.match[1]);
+    const outcome = ctx.match[2];
+    await userHandlers.handleContestPick(ctx, contestId, outcome);
+});
+
+bot.action(/^contest:cancel$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await userHandlers.handleContestCancel(ctx);
 });
 
 bot.action(/^check_subscription$/, async (ctx) => {
@@ -123,7 +150,7 @@ bot.action(/^check_subscription$/, async (ctx) => {
             const userService = new UserService();
             const user = await userService.getUserByChatId(ctx.from.id);
             if (!user) {
-                await updateOrSendMessage(ctx, 'Введите свой Betboom ID');
+                await updateOrSendMessage(ctx, 'Введите свой BetBoom ID');
             }
         } else {
             await ctx.answerCbQuery('Вы не подписаны на канал', { show_alert: true });
@@ -182,6 +209,14 @@ bot.action(/^admin:event:edit:(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery();
 });
 
+bot.action(/^admin:event:edit_field:(\d+):(\w+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const eventId = parseInt(ctx.match[1]);
+    const field = ctx.match[2];
+    await adminHandlers.handleEventEditField(ctx, eventId, field);
+    await ctx.answerCbQuery();
+});
+
 bot.action(/^admin:event:delete:(\d+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
     const eventId = parseInt(ctx.match[1]);
@@ -196,58 +231,137 @@ bot.action(/^admin:event:delete_confirm:(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery();
 });
 
-bot.action(/^admin:giveaway:create$/, async (ctx) => {
+bot.action(/^admin:contest:create$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    await adminHandlers.handleGiveawayCreate(ctx);
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestCreate(ctx);
 });
 
-bot.action(/^admin:giveaway:list$/, async (ctx) => {
+bot.action(/^admin:contest:list$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    await adminHandlers.handleGiveawayList(ctx);
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestList(ctx);
 });
 
-bot.action(/^admin:giveaway:list:page:(\d+)$/, async (ctx) => {
+bot.action(/^admin:contest:list:page:(\d+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
     const page = parseInt(ctx.match[1]);
-    await adminHandlers.handleGiveawayList(ctx, page);
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestList(ctx, page);
 });
 
-bot.action(/^admin:giveaway:view:(\d+)$/, async (ctx) => {
+bot.action(/^admin:contest:view:(\d+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    const giveawayId = parseInt(ctx.match[1]);
-    await adminHandlers.handleGiveawayView(ctx, giveawayId);
+    const contestId = parseInt(ctx.match[1]);
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestView(ctx, contestId);
 });
 
-bot.action(/^admin:giveaway:results:(\d+)$/, async (ctx) => {
+bot.action(/^admin:contest:edit:(\d+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    const giveawayId = parseInt(ctx.match[1]);
-    await adminHandlers.handleGiveawayResults(ctx, giveawayId);
+    const contestId = parseInt(ctx.match[1]);
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestEdit(ctx, contestId);
 });
 
-bot.action(/^admin:giveaway:edit:(\d+)$/, async (ctx) => {
+bot.action(/^admin:contest:edit_field:(\d+):(\w+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    const giveawayId = parseInt(ctx.match[1]);
-    await adminHandlers.handleGiveawayEdit(ctx, giveawayId);
+    const contestId = parseInt(ctx.match[1]);
+    const field = ctx.match[2];
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestEditField(ctx, contestId, field);
 });
 
-bot.action(/^admin:giveaway:delete:(\d+)$/, async (ctx) => {
+bot.action(/^admin:contest:pick_outcome:(\d+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    const giveawayId = parseInt(ctx.match[1]);
-    await adminHandlers.handleGiveawayDelete(ctx, giveawayId);
+    const contestId = parseInt(ctx.match[1]);
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestPickOutcome(ctx, contestId);
 });
 
-bot.action(/^admin:giveaway:delete_confirm:(\d+)$/, async (ctx) => {
+bot.action(/^admin:contest:set_outcome:(\d+):(\w+)$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
-    const giveawayId = parseInt(ctx.match[1]);
-    await adminHandlers.handleGiveawayDeleteConfirm(ctx, giveawayId);
+    const contestId = parseInt(ctx.match[1]);
+    const outcome = ctx.match[2];
+    await adminHandlers.handleContestSetOutcome(ctx, contestId, outcome);
+});
+
+bot.action(/^admin:contest:finalize$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
     await ctx.answerCbQuery();
+    await adminHandlers.handleContestFinalize(ctx);
+});
+
+bot.action(/^admin:event:pick_outcome:(\d+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const eventId = parseInt(ctx.match[1]);
+    await ctx.answerCbQuery();
+    await adminHandlers.handleEventPickOutcome(ctx, eventId);
+});
+
+bot.action(/^admin:event:set_outcome:(\d+):(\w+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const eventId = parseInt(ctx.match[1]);
+    const outcome = ctx.match[2];
+    await adminHandlers.handleEventSetOutcome(ctx, eventId, outcome);
+});
+
+bot.action(/^admin:event:edit_cancel:(\d+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const eventId = parseInt(ctx.match[1]);
+    await ctx.answerCbQuery();
+    await adminHandlers.handleEventEditCancel(ctx, eventId);
+});
+
+bot.action(/^admin:contest:edit_cancel:(\d+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const contestId = parseInt(ctx.match[1]);
+    await ctx.answerCbQuery();
+    await adminHandlers.handleContestEditCancel(ctx, contestId);
+});
+
+bot.action(/^admin:contest:delete:(\d+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const contestId = parseInt(ctx.match[1]);
+    await ctx.answerCbQuery();
+    await adminHandlers.handleContestDelete(ctx, contestId);
+});
+
+bot.action(/^admin:contest:delete_confirm:(\d+)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const contestId = parseInt(ctx.match[1]);
+    await ctx.answerCbQuery();
+    await adminHandlers.handleContestDeleteConfirm(ctx, contestId);
+});
+
+bot.action(/^admin:cancel$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    await ctx.answerCbQuery();
+    await adminHandlers.handleCancel(ctx);
+});
+
+bot.action(/^admin:event:others$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    await ctx.answerCbQuery();
+    await adminHandlers.handleEventOthers(ctx);
+});
+
+bot.action(/^admin:contest:others$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    await ctx.answerCbQuery();
+    await adminHandlers.handleContestOthers(ctx);
+});
+
+bot.action(/^admin:event:create_cancel$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    await ctx.answerCbQuery();
+    await adminHandlers.handleEventCreateCancel(ctx);
+});
+
+bot.action(/^admin:contest:create_cancel$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    await ctx.answerCbQuery();
+    await adminHandlers.handleContestCreateCancel(ctx);
 });
 
 async function start() {
