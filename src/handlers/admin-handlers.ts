@@ -55,7 +55,7 @@ export class AdminHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: 'creating_event', data: {} });
-        await ctx.reply('Отправьте информацию о событии одним сообщением в формате:\nНазвание матча\nИсход матча\nСумма ставки\nКоэффициент\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)\nФото (опционально)', {
+        await updateOrSendMessage(ctx, 'Отправьте информацию о матче одним сообщением в формате:\nНазвание\nИсход\nСумма ставки\nКоэффициент\nДата начала (ДД.ММ.ГГГГ ЧЧ:ММ)\nФото (опционально)', {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Отменить', callback_data: 'admin:event:create_cancel' }]
@@ -73,7 +73,7 @@ export class AdminHandlers {
         const totalPages = Math.ceil(events.length / limit);
 
         if (pageEvents.length === 0) {
-            await updateOrSendMessage(ctx, 'Нет событий', {
+            await updateOrSendMessage(ctx, 'Нет матчей', {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: 'Главное меню', callback_data: 'admin:event:others' }]
@@ -238,7 +238,7 @@ export class AdminHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: 'creating_contest', data: {} });
-        await ctx.reply('Отправьте информацию о розыгрыше одним сообщением в формате:\nНазвание матча\nКоманда 1\nКоманда 2\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)', {
+        await updateOrSendMessage(ctx, 'Отправьте информацию о матче одним сообщением в формате:\nНазвание\nКоманда 1\nКоманда 2\nДата начала (ДД.ММ.ГГГГ ЧЧ:ММ)', {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Отменить', callback_data: 'admin:contest:create_cancel' }]
@@ -256,7 +256,7 @@ export class AdminHandlers {
         const totalPages = Math.ceil(contests.length / limit);
 
         if (pageContests.length === 0) {
-            await updateOrSendMessage(ctx, 'Нет розыгрышей', {
+            await updateOrSendMessage(ctx, 'Нет активных матчей', {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: 'Главное меню', callback_data: 'admin:contest:others' }]
@@ -329,7 +329,7 @@ export class AdminHandlers {
 
         sessions.set(chatId, { state: null });
         await ctx.answerCbQuery();
-        await this.showAdminMenu(ctx);
+        await this.handleEvents(ctx);
     }
 
     async handleContestCreateCancel(ctx: Context) {
@@ -338,7 +338,7 @@ export class AdminHandlers {
 
         sessions.set(chatId, { state: null });
         await ctx.answerCbQuery();
-        await this.showAdminMenu(ctx);
+        await this.handleGiveaways(ctx);
     }
 
     async handleContestView(ctx: Context, contestId: number) {

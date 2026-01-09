@@ -117,7 +117,7 @@ export class UserHandlers {
         const events = await this.betEventService.getActiveEvents();
         
         if (events.length === 0) {
-            await updateOrSendMessage(ctx, 'Нет активных событий', {
+            await updateOrSendMessage(ctx, 'Нет активных матчей', {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: 'Главное меню', callback_data: 'menu:back' }]
@@ -240,7 +240,7 @@ export class UserHandlers {
         const contests = await this.contestService.getActiveContests();
         
         if (contests.length === 0) {
-            await updateOrSendMessage(ctx, 'Нет розыгрышей', {
+            await updateOrSendMessage(ctx, 'Нет активных матчей', {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: 'Главное меню', callback_data: 'menu:back' }]
