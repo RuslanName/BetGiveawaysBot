@@ -167,7 +167,7 @@ export class UserHandlers {
         let message = `Матч «${event.match_name}»\n`;
         message += `Исход матча: ${event.winner_team}\n`;
         message += `Сумма ставки: ${event.bet_amount}\n`;
-        message += `Коэффициент: ${event.coefficient}\n`;
+            message += `Коэффициент: ${event.coefficient}\n`;
         message += `Дата начала матча: ${formatDate(event.match_started_at)}\n\n`;
         message += 'Введите ID билета';
         

@@ -211,6 +211,16 @@ export class AdminHandlers {
     async handleEventDeleteConfirm(ctx: Context, eventId: number) {
         const event = await this.betEventService.getEventById(eventId);
         await this.betEventService.cancelEvent(eventId);
+        
+        const messageId = (ctx.callbackQuery?.message as any)?.message_id;
+        if (messageId) {
+            try {
+                await ctx.deleteMessage(messageId);
+            } catch (error) {
+                // Message might already be deleted
+            }
+        }
+        
         await ctx.reply(`Матч «${event?.match_name || ''}» для события удален`);
         await this.handleEvents(ctx);
     }
@@ -238,7 +248,7 @@ export class AdminHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: 'creating_contest', data: {} });
-        await updateOrSendMessage(ctx, 'Отправьте информацию о матче одним сообщением в формате:\nНазвание\nКоманда 1\nКоманда 2\nДата начала (ДД.ММ.ГГГГ ЧЧ:ММ)', {
+        await updateOrSendMessage(ctx, 'Отправьте информацию о матче одним сообщением в формате:\nНазвание\nНазвание команды 1\nНазвание команды 2\nДата начала (ДД.ММ.ГГГГ ЧЧ:ММ)', {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Отменить', callback_data: 'admin:contest:create_cancel' }]
@@ -349,6 +359,8 @@ export class AdminHandlers {
         }
 
         let message = `*Матч «${contest.match_name}»*\n`;
+        message += `Название команды 1: ${contest.team_1}\n`;
+        message += `Название команды 2: ${contest.team_2}\n`;
         message += `Дата начала матча: ${formatDate(contest.match_started_at)}\n`;
         if (contest.picked_outcome) {
             const outcomeNames: Record<string, string> = {
@@ -388,8 +400,8 @@ export class AdminHandlers {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Название матча', callback_data: `admin:contest:edit_field:${contestId}:match_name` }],
-                    [{ text: 'Команда 1', callback_data: `admin:contest:edit_field:${contestId}:team_1` }],
-                    [{ text: 'Команда 2', callback_data: `admin:contest:edit_field:${contestId}:team_2` }],
+                    [{ text: 'Название команды 1', callback_data: `admin:contest:edit_field:${contestId}:team_1` }],
+                    [{ text: 'Название команды 2', callback_data: `admin:contest:edit_field:${contestId}:team_2` }],
                     [{ text: 'Дату начала матча', callback_data: `admin:contest:edit_field:${contestId}:match_started_at` }],
                     [{ text: 'Отменить', callback_data: `admin:contest:view:${contestId}` }]
                 ]
@@ -416,6 +428,16 @@ export class AdminHandlers {
     async handleContestDeleteConfirm(ctx: Context, contestId: number) {
         const contest = await this.contestService.getContestById(contestId);
         await this.contestService.cancelContest(contestId);
+        
+        const messageId = (ctx.callbackQuery?.message as any)?.message_id;
+        if (messageId) {
+            try {
+                await ctx.deleteMessage(messageId);
+            } catch (error) {
+                // Message might already be deleted
+            }
+        }
+        
         await ctx.reply(`Матч «${contest?.match_name || ''}» для розыгрыша удален`);
         await this.handleGiveaways(ctx);
     }
@@ -500,8 +522,8 @@ export class AdminHandlers {
 
         const fieldNames: Record<string, string> = {
             match_name: 'Название матча',
-            team_1: 'Команда 1',
-            team_2: 'Команда 2',
+            team_1: 'Название команды 1',
+            team_2: 'Название команды 2',
             match_started_at: 'Дата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)'
         };
 
@@ -675,7 +697,7 @@ export class AdminHandlers {
 
         const lines = text.split('\n').filter(l => l.trim());
         if (lines.length < 4) {
-            await ctx.reply('Неверный формат. Отправьте:\nНазвание матча\nКоманда 1\nКоманда 2\nДата начала матча (ДД.ММ.ГГГГ ЧЧ:ММ)');
+            await ctx.reply('Неверный формат. Отправьте:\nНазвание\nНазвание команды 1\nНазвание команды 2\nДата начала (ДД.ММ.ГГГГ ЧЧ:ММ)');
             return;
         }
 
