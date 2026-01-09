@@ -212,7 +212,7 @@ export class AdminHandlers {
         const event = await this.betEventService.getEventById(eventId);
         await this.betEventService.cancelEvent(eventId);
         await ctx.reply(`Матч «${event?.match_name || ''}» для события удален`);
-        await this.handleEventList(ctx);
+        await this.handleEvents(ctx);
     }
 
     async handleGiveaways(ctx: Context) {
@@ -417,7 +417,7 @@ export class AdminHandlers {
         const contest = await this.contestService.getContestById(contestId);
         await this.contestService.cancelContest(contestId);
         await ctx.reply(`Матч «${contest?.match_name || ''}» для розыгрыша удален`);
-        await this.handleContestList(ctx);
+        await this.handleGiveaways(ctx);
     }
 
     async handleContestPickOutcome(ctx: Context, contestId: number) {
@@ -661,8 +661,9 @@ export class AdminHandlers {
                 }
             }
 
-            await ctx.reply(`Матч «${event.match_name}» для события создан и отправлен пользователям`);
             sessions.set(chatId, { state: null });
+            await ctx.reply(`Матч «${event.match_name}» для события создан и отправлен пользователям`);
+            await this.handleEvents(ctx);
         } catch (error: any) {
             await ctx.reply(error.message || 'Ошибка при создании события');
         }
@@ -688,8 +689,9 @@ export class AdminHandlers {
 
         try {
             await this.contestService.createContest(matchName, team1, team2, matchStartedAt);
-            await ctx.reply(`Матч «${matchName}» для розыгрыша создан`);
             sessions.set(chatId, { state: null });
+            await ctx.reply(`Матч «${matchName}» для розыгрыша создан`);
+            await this.handleGiveaways(ctx);
         } catch (error: any) {
             await ctx.reply(error.message || 'Ошибка при создании розыгрыша');
         }
@@ -778,9 +780,9 @@ export class AdminHandlers {
         try {
             await this.betEventService.updateEvent(eventId, updateData);
             const updatedEvent = await this.betEventService.getEventById(eventId);
-            await ctx.reply(`Матч «${updatedEvent?.match_name || ''}» для события изменен`);
             sessions.set(chatId, { state: null });
-            await this.handleEventView(ctx, eventId);
+            await ctx.reply(`Матч «${updatedEvent?.match_name || ''}» для события изменен`);
+            await this.handleEvents(ctx);
         } catch (error: any) {
             await ctx.reply(error.message || 'Ошибка при обновлении события');
         }
@@ -829,9 +831,9 @@ export class AdminHandlers {
         try {
             await this.contestService.updateContest(contestId, updateData);
             const updatedContest = await this.contestService.getContestById(contestId);
-            await ctx.reply(`Матч «${updatedContest?.match_name || ''}» для розыгрыша изменен`);
             sessions.set(chatId, { state: null });
-            await this.handleContestView(ctx, contestId);
+            await ctx.reply(`Матч «${updatedContest?.match_name || ''}» для розыгрыша изменен`);
+            await this.handleGiveaways(ctx);
         } catch (error: any) {
             await ctx.reply(error.message || 'Ошибка при обновлении розыгрыша');
         }
