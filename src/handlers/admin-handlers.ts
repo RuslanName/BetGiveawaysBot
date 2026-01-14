@@ -10,7 +10,7 @@ import { AppDataSource } from '../config/db.js';
 import { Telegraf } from 'telegraf';
 
 interface AdminSession {
-    state?: 'creating_event' | 'creating_contest' | 'creating_broadcast' | 'editing_event' | 'editing_contest' | null;
+    state?: 'creating_event' | 'creating_contest' | 'creating_broadcast' | 'editing_event' | 'editing_contest' | 'setting_event_lost_message' | null;
     data?: any;
 }
 
@@ -320,6 +320,10 @@ export class AdminHandlers {
             sessions.set(chatId, { state: null });
             await updateOrSendMessage(ctx, 'Редактирование отменено');
             await this.handleContestView(ctx, session.data.contestId);
+        } else if (session.state === 'setting_event_lost_message' && session.data?.eventId) {
+            sessions.set(chatId, { state: null });
+            await updateOrSendMessage(ctx, 'Отменено');
+            await this.handleEventView(ctx, session.data.eventId);
         } else {
             sessions.set(chatId, { state: null });
         }
@@ -499,14 +503,34 @@ export class AdminHandlers {
     }
 
     async handleEventSetOutcome(ctx: Context, eventId: number, outcome: string) {
-        try {
-            const isWon = outcome === 'won';
-            await this.betEventService.setEventOutcome(eventId, isWon);
-            await this.betEventService.sendEventResultsToUsers(eventId, this.bot);
-            await ctx.answerCbQuery('Исход матча установлен');
-            await this.handleEventList(ctx);
-        } catch (error: any) {
-            await ctx.answerCbQuery(error.message || 'Ошибка', { show_alert: true });
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        if (outcome === 'won') {
+            try {
+                await this.betEventService.setEventOutcome(eventId, true);
+                await this.betEventService.sendEventResultsToUsers(eventId, this.bot);
+                await ctx.answerCbQuery('Исход матча установлен');
+                await this.handleEventList(ctx);
+            } catch (error: any) {
+                await ctx.answerCbQuery(error.message || 'Ошибка', { show_alert: true });
+            }
+        } else if (outcome === 'lost') {
+            const event = await this.betEventService.getEventById(eventId);
+            if (!event) {
+                await ctx.answerCbQuery('Событие не найдено', { show_alert: true });
+                return;
+            }
+
+            sessions.set(chatId, { state: 'setting_event_lost_message', data: { eventId } });
+            await ctx.answerCbQuery();
+            await updateOrSendMessage(ctx, 'Введите текст сообщения для пользователей:', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Отменить', callback_data: `admin:event:view:${eventId}` }]
+                    ]
+                }
+            });
         }
     }
 
@@ -627,6 +651,8 @@ export class AdminHandlers {
             await this.processEventEdit(ctx, text, photo, session);
         } else if (session?.state === 'editing_contest') {
             await this.processContestEdit(ctx, text, session);
+        } else if (session?.state === 'setting_event_lost_message') {
+            await this.processEventLostMessage(ctx, text, session);
         }
     }
 
@@ -734,6 +760,33 @@ export class AdminHandlers {
         }
     }
 
+    private async processEventLostMessage(ctx: Context, text: string | undefined, session: AdminSession) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const { eventId } = session.data || {};
+        if (!eventId) {
+            await ctx.reply('Ошибка: событие не найдено');
+            sessions.set(chatId, { state: null });
+            return;
+        }
+
+        if (!text || !text.trim()) {
+            await ctx.reply('Введите текст сообщения');
+            return;
+        }
+
+        try {
+            await this.betEventService.setEventOutcome(eventId, false);
+            await this.betEventService.sendEventLostMessageToUsers(eventId, text.trim(), this.bot);
+            sessions.set(chatId, { state: null });
+            await ctx.reply('Сообщение отправлено пользователям');
+            await this.handleEventList(ctx);
+        } catch (error: any) {
+            await ctx.reply(error.message || 'Ошибка при отправке сообщения');
+        }
+    }
+
     private async processBroadcastCreation(ctx: Context, text: string | undefined, photo: any) {
         const chatId = ctx.from?.id;
         if (!chatId) return;
@@ -745,8 +798,23 @@ export class AdminHandlers {
             return;
         }
 
+        let caption = text || null;
+        let url: string | null = null;
+
+        if (text) {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const matches = text.match(urlRegex);
+            if (matches && matches.length > 0) {
+                url = matches[matches.length - 1];
+                const lastIndex = text.lastIndexOf(url);
+                if (lastIndex !== -1) {
+                    caption = (text.substring(0, lastIndex) + text.substring(lastIndex + url.length)).trim() || null;
+                }
+            }
+        }
+
         try {
-            await this.broadcastService.createBroadcast(text || null, fileId, this.bot);
+            await this.broadcastService.createBroadcast(caption, fileId, url, this.bot);
             await ctx.reply('Рассылка отправлена');
             sessions.set(chatId, { state: null });
         } catch (error: any) {

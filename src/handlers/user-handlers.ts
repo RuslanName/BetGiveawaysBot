@@ -35,7 +35,7 @@ export class UserHandlers {
             const text = (ctx.message as any).text?.trim();
             if (text === 'Отменить') {
                 sessions.set(chatId, { state: null });
-                await this.handleGiveawaysButton(ctx);
+                await this.handleGiveawaysMatches(ctx);
             }
         }
     }
@@ -222,15 +222,26 @@ export class UserHandlers {
         await updateOrSendMessage(ctx, 'Главное меню', {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'События для ставки', callback_data: 'menu:events' }],
-                    [{ text: 'Розыгрыш фрибетов', callback_data: 'menu:giveaways' }],
-                    [{ text: 'Рейтинг', callback_data: 'menu:rating' }]
+                    [{ text: 'Бесплатная ставка', callback_data: 'menu:events' }],
+                    [{ text: 'Прогнозы на игровой день', callback_data: 'menu:giveaways' }]
                 ]
             }
         });
     }
 
     async handleGiveawaysButton(ctx: Context) {
+        await updateOrSendMessage(ctx, 'Прогнозы на игровой день', {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Матчи', callback_data: 'menu:giveaways:matches' }],
+                    [{ text: 'Рейтинг', callback_data: 'menu:rating' }],
+                    [{ text: 'Главное меню', callback_data: 'menu:back' }]
+                ]
+            }
+        });
+    }
+
+    async handleGiveawaysMatches(ctx: Context) {
         const chatId = ctx.from?.id;
         if (!chatId) return;
 
@@ -243,7 +254,7 @@ export class UserHandlers {
             await updateOrSendMessage(ctx, 'Нет активных матчей', {
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: 'Главное меню', callback_data: 'menu:back' }]
+                        [{ text: 'Назад', callback_data: 'menu:giveaways' }]
                     ]
                 }
             });
@@ -259,7 +270,7 @@ export class UserHandlers {
                 callback_data: `contest:select:${contest.id}`
             }]);
         }
-        keyboard.push([{ text: 'Главное меню', callback_data: 'menu:back' }]);
+        keyboard.push([{ text: 'Назад', callback_data: 'menu:giveaways' }]);
 
         await updateOrSendMessage(ctx, 'Выберите матч:', {
             reply_markup: { inline_keyboard: keyboard }
@@ -324,7 +335,7 @@ export class UserHandlers {
             await this.contestService.addPick(user.id, contestId, outcome as any);
             await ctx.answerCbQuery('Исход выбран');
             sessions.set(chatId, { state: null });
-            await this.handleGiveawaysButton(ctx);
+            await this.handleGiveawaysMatches(ctx);
         } catch (error: any) {
             await ctx.answerCbQuery(error.message || 'Ошибка', { show_alert: true });
         }
@@ -335,7 +346,7 @@ export class UserHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: null });
-        await this.handleGiveawaysButton(ctx);
+        await this.handleGiveawaysMatches(ctx);
     }
 
     async handleRating(ctx: Context) {
@@ -367,7 +378,7 @@ export class UserHandlers {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Главное меню', callback_data: 'menu:back' }]
+                    [{ text: 'Назад', callback_data: 'menu:giveaways' }]
                 ]
             }
         });

@@ -105,6 +105,11 @@ bot.action(/^menu:giveaways$/, async (ctx) => {
     await userHandlers.handleGiveawaysButton(ctx);
 });
 
+bot.action(/^menu:giveaways:matches$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await userHandlers.handleGiveawaysMatches(ctx);
+});
+
 bot.action(/^menu:rating$/, async (ctx) => {
     await ctx.answerCbQuery();
     await userHandlers.handleRating(ctx);

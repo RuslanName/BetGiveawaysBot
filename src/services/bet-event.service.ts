@@ -130,6 +130,30 @@ export class BetEventService {
         }
     }
 
+    async sendEventLostMessageToUsers(eventId: number, message: string, bot: any): Promise<void> {
+        const event = await this.getEventById(eventId);
+        if (!event) return;
+
+        const bets = await this.betRepo.findByEventId(eventId);
+        const { User } = await import('../entities/index.js');
+        const userRepository = (await import('../config/db.js')).AppDataSource.getRepository(User);
+
+        for (const bet of bets) {
+            try {
+                const user = await userRepository.findOne({ where: { id: bet.user_id } });
+                if (!user) continue;
+
+                await bot.telegram.sendMessage(user.chat_id, message);
+                
+                if (bets.indexOf(bet) % 30 === 0 && bets.indexOf(bet) > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } catch (error) {
+                console.error(`Failed to send event lost message to user ${bet.user_id}:`, error);
+            }
+        }
+    }
+
     async setEventOutcome(eventId: number, isWon: boolean): Promise<void> {
         const now = new Date();
         const event = await this.getEventById(eventId);

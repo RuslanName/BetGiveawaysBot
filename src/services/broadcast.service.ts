@@ -6,10 +6,11 @@ import { Telegraf } from 'telegraf';
 export class BroadcastService {
     private broadcastRepo = new BroadcastRepository();
 
-    async createBroadcast(caption: string | null, fileId: string | null, bot: Telegraf): Promise<Broadcast> {
+    async createBroadcast(caption: string | null, fileId: string | null, url: string | null, bot: Telegraf): Promise<Broadcast> {
         const broadcast = await this.broadcastRepo.create({
             caption,
             file_id: fileId,
+            url,
             status: 'sending'
         });
 
@@ -29,14 +30,21 @@ export class BroadcastService {
         let successCount = 0;
         let failCount = 0;
 
+        const replyMarkup = broadcast.url ? {
+            inline_keyboard: [[{ text: 'Открыть ссылку', url: broadcast.url }]]
+        } : undefined;
+
         for (const user of users) {
             try {
                 if (broadcast.file_id) {
                     await bot.telegram.sendPhoto(user.chat_id, broadcast.file_id, {
-                        caption: broadcast.caption || undefined
+                        caption: broadcast.caption || undefined,
+                        reply_markup: replyMarkup
                     });
-                } else if (broadcast.caption) {
-                    await bot.telegram.sendMessage(user.chat_id, broadcast.caption);
+                } else if (broadcast.caption || broadcast.url) {
+                    await bot.telegram.sendMessage(user.chat_id, broadcast.caption || '', {
+                        reply_markup: replyMarkup
+                    });
                 }
                 successCount++;
                 

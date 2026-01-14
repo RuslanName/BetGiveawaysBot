@@ -13,6 +13,9 @@ export class Broadcast {
     @Column({ type: 'varchar', length: 255, nullable: true, name: 'file_id' })
     file_id!: string | null;
 
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    url!: string | null;
+
     @Column({ type: 'varchar', length: 20, default: 'sending' })
     status!: BroadcastStatus;
 
