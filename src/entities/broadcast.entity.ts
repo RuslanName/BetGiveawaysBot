@@ -16,6 +16,9 @@ export class Broadcast {
     @Column({ type: 'varchar', length: 500, nullable: true })
     url!: string | null;
 
+    @Column({ type: 'varchar', length: 100, nullable: true, name: 'button_text' })
+    button_text!: string | null;
+
     @Column({ type: 'varchar', length: 20, default: 'sending' })
     status!: BroadcastStatus;
 

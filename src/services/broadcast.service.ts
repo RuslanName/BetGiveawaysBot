@@ -6,11 +6,12 @@ import { Telegraf } from 'telegraf';
 export class BroadcastService {
     private broadcastRepo = new BroadcastRepository();
 
-    async createBroadcast(caption: string | null, fileId: string | null, url: string | null, bot: Telegraf): Promise<Broadcast> {
+    async createBroadcast(caption: string | null, fileId: string | null, url: string | null, buttonText: string | null, bot: Telegraf): Promise<Broadcast> {
         const broadcast = await this.broadcastRepo.create({
             caption,
             file_id: fileId,
             url,
+            button_text: buttonText,
             status: 'sending'
         });
 
@@ -31,7 +32,7 @@ export class BroadcastService {
         let failCount = 0;
 
         const replyMarkup = broadcast.url ? {
-            inline_keyboard: [[{ text: 'Открыть ссылку', url: broadcast.url }]]
+            inline_keyboard: [[{ text: broadcast.button_text || 'Открыть ссылку', url: broadcast.url }]]
         } : undefined;
 
         for (const user of users) {

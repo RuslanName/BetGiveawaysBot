@@ -581,7 +581,7 @@ export class AdminHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: 'creating_broadcast', data: {} });
-        await updateOrSendMessage(ctx, 'Отправьте текст рассылки (опционально) и/или фото', {
+        await updateOrSendMessage(ctx, 'Отправьте информацию о рассылке одним сообщением:\nТекст (опционально)\nСсылка Название кнопки (опционально)\nФото (опционально)', {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Отменить', callback_data: 'admin:cancel' }]
@@ -800,6 +800,7 @@ export class AdminHandlers {
 
         let caption = text || null;
         let url: string | null = null;
+        let buttonText: string | null = null;
 
         if (text) {
             const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -808,13 +809,17 @@ export class AdminHandlers {
                 url = matches[matches.length - 1];
                 const lastIndex = text.lastIndexOf(url);
                 if (lastIndex !== -1) {
-                    caption = (text.substring(0, lastIndex) + text.substring(lastIndex + url.length)).trim() || null;
+                    const afterUrl = text.substring(lastIndex + url.length).trim();
+                    if (afterUrl) {
+                        buttonText = afterUrl;
+                    }
+                    caption = text.substring(0, lastIndex).trim() || null;
                 }
             }
         }
 
         try {
-            await this.broadcastService.createBroadcast(caption, fileId, url, this.bot);
+            await this.broadcastService.createBroadcast(caption, fileId, url, buttonText, this.bot);
             await ctx.reply('Рассылка отправлена');
             sessions.set(chatId, { state: null });
         } catch (error: any) {
