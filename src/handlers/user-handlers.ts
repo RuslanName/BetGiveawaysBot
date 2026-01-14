@@ -179,7 +179,8 @@ export class UserHandlers {
                     inline_keyboard: [[
                         { text: 'Отменить', callback_data: 'bet:cancel' }
                     ]]
-                }
+                },
+                photo: event.file_id || undefined
             }
         );
     }
