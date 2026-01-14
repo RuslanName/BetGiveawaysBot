@@ -33,10 +33,43 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
 
         if (!user) {
             const session = registrationSessions.get(ctx.from.id);
+            const message = (ctx.update as any).message;
+            const isCommand = message && 'text' in message && message.text?.startsWith('/');
             
             if (session?.state === 'registering') {
-                await next();
-                return;
+                if (isCommand) {
+                    const fileId = getRegistrationPhotoFileId();
+                    
+                    if (fileId) {
+                        await ctx.replyWithPhoto(fileId, {
+                            caption: 'Введите свой BetBoom ID'
+                        });
+                    } else {
+                        const photoPath = getRegistrationPhotoPath();
+                        if (existsSync(photoPath)) {
+                            try {
+                                const photoStream = createReadStream(photoPath);
+                                const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
+                                    caption: 'Введите свой BetBoom ID'
+                                });
+                                
+                                const photo = (sentMessage as any).photo;
+                                if (photo && photo.length > 0) {
+                                    const newFileId = photo[photo.length - 1].file_id;
+                                    setRegistrationPhotoFileId(newFileId);
+                                }
+                            } catch (error) {
+                                await ctx.reply('Введите свой BetBoom ID');
+                            }
+                        } else {
+                            await ctx.reply('Введите свой BetBoom ID');
+                        }
+                    }
+                    return;
+                } else {
+                    await next();
+                    return;
+                }
             }
 
             registrationSessions.set(ctx.from.id, { state: 'registering' });

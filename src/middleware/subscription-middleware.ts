@@ -27,18 +27,18 @@ export const checkSubscription = (channelChatId: string, channelUrl: string): Mi
             if (!isSubscribed) {
                 await updateOrSendMessage(
                     ctx,
-                'Для использования бота необходимо подписаться на канал.',
-                {
-                    reply_markup: {
+                    'Для использования бота необходимо подписаться на канал.',
+                    {
+                        reply_markup: {
                             inline_keyboard: [
                                 [{ text: 'Подписаться на канал', url: channelUrl }],
                                 [{ text: 'Проверить подписку', callback_data: 'check_subscription' }]
                             ]
+                        }
                     }
-                }
-            );
-            return;
-        }
+                );
+                return;
+            }
 
             await checkRegistration()(ctx, next);
         } catch (error) {
