@@ -1,7 +1,9 @@
 import { Context, type MiddlewareFn } from 'telegraf';
+import { createReadStream } from 'fs';
 import { UserService } from '../services/user.service.js';
 import { updateOrSendMessage } from '../utils/message-updater.js';
 import { isAdmin } from '../utils/admin.js';
+import { getRegistrationPhotoFileId, setRegistrationPhotoFileId, getRegistrationPhotoPath } from '../utils/registration-photo.js';
 
 interface RegistrationSession {
     state?: 'registering' | null;
@@ -38,7 +40,27 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
             }
 
             registrationSessions.set(ctx.from.id, { state: 'registering' });
-            await updateOrSendMessage(ctx, 'Введите свой BetBoom ID');
+            
+            const fileId = getRegistrationPhotoFileId();
+            
+            if (fileId) {
+                await ctx.replyWithPhoto(fileId, {
+                    caption: 'Введите свой BetBoom ID'
+                });
+            } else {
+                const photoPath = getRegistrationPhotoPath();
+                const photoStream = createReadStream(photoPath);
+                const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
+                    caption: 'Введите свой BetBoom ID'
+                });
+                
+                const photo = (sentMessage as any).photo;
+                if (photo && photo.length > 0) {
+                    const newFileId = photo[photo.length - 1].file_id;
+                    setRegistrationPhotoFileId(newFileId);
+                }
+            }
+            
             return;
         }
 

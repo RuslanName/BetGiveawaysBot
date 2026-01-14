@@ -665,19 +665,29 @@ export class AdminHandlers {
             const allUsers = await userRepository.find({ select: ['chat_id'] });
             for (const userRow of allUsers) {
                 try {
-                    let message = `*Новое событие: «${event.match_name}»*\n`;
+                    let message = `*Ставка: ${event.match_name}*\n`;
                     message += `Исход матча: ${event.winner_team}\n`;
                     message += `Сумма ставки: ${event.bet_amount}\n`;
                     message += `Коэффициент: ${event.coefficient}\n`;
-                    message += `Дата начала: ${formatDate(event.match_started_at)}`;
+                    message += `Дата окончания: ${formatDate(event.match_started_at)}`;
+
+                    const replyMarkup = {
+                        inline_keyboard: [[
+                            { text: 'УЧАСТВОВАТЬ', callback_data: `event:select:${event.id}` }
+                        ]]
+                    };
 
                     if (fileId) {
                         await this.bot.telegram.sendPhoto(userRow.chat_id, fileId, {
                             caption: message,
-                            parse_mode: 'Markdown'
+                            parse_mode: 'Markdown',
+                            reply_markup: replyMarkup
                         });
                     } else {
-                        await this.bot.telegram.sendMessage(userRow.chat_id, message, { parse_mode: 'Markdown' });
+                        await this.bot.telegram.sendMessage(userRow.chat_id, message, { 
+                            parse_mode: 'Markdown',
+                            reply_markup: replyMarkup
+                        });
                     }
 
                     if (allUsers.indexOf(userRow) % 30 === 0 && allUsers.indexOf(userRow) > 0) {
