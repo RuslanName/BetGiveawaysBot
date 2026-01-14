@@ -48,16 +48,20 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                     caption: 'Введите свой BetBoom ID'
                 });
             } else {
-                const photoPath = getRegistrationPhotoPath();
-                const photoStream = createReadStream(photoPath);
-                const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
-                    caption: 'Введите свой BetBoom ID'
-                });
-                
-                const photo = (sentMessage as any).photo;
-                if (photo && photo.length > 0) {
-                    const newFileId = photo[photo.length - 1].file_id;
-                    setRegistrationPhotoFileId(newFileId);
+                try {
+                    const photoPath = getRegistrationPhotoPath();
+                    const photoStream = createReadStream(photoPath);
+                    const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
+                        caption: 'Введите свой BetBoom ID'
+                    });
+                    
+                    const photo = (sentMessage as any).photo;
+                    if (photo && photo.length > 0) {
+                        const newFileId = photo[photo.length - 1].file_id;
+                        setRegistrationPhotoFileId(newFileId);
+                    }
+                } catch (error) {
+                    await ctx.reply('Введите свой BetBoom ID');
                 }
             }
             
