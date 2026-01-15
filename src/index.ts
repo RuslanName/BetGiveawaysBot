@@ -10,6 +10,7 @@ import { AdminHandlers } from './handlers/admin-handlers.js';
 import { updateOrSendMessage } from './utils/message-updater.js';
 import { ENV } from './config/constants.js';
 import { initCron } from './utils/cron.js';
+import { UserService } from './services/user.service.js';
 
 const bot = new Telegraf(ENV.BOT_TOKEN);
 const userHandlers = new UserHandlers();
@@ -156,7 +157,6 @@ bot.action(/^check_subscription$/, async (ctx) => {
             await ctx.answerCbQuery('Вы подписаны на канал!', { show_alert: false });
             await ctx.deleteMessage();
             
-            const { UserService } = await import('./services/user.service.js');
             const userService = new UserService();
             const user = await userService.getUserByChatId(ctx.from.id);
             if (!user) {

@@ -4,6 +4,8 @@ import { UserService } from '../services/user.service.js';
 import { updateOrSendMessage } from '../utils/message-updater.js';
 import { isAdmin } from '../utils/admin.js';
 import { getRegistrationPhotoFileId, setRegistrationPhotoFileId, getRegistrationPhotoPath } from '../utils/registration-photo.js';
+import { ENV } from '../config/constants.js';
+import { UserHandlers } from '../handlers/user-handlers.js';
 
 interface RegistrationSession {
     state?: 'registering' | null;
@@ -39,10 +41,16 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
             if (session?.state === 'registering') {
                 if (isCommand) {
                     const fileId = getRegistrationPhotoFileId();
+                    const replyMarkup = {
+                        inline_keyboard: [
+                            [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }]
+                        ]
+                    };
                     
                     if (fileId) {
                         await ctx.replyWithPhoto(fileId, {
-                            caption: 'Введите свой BetBoom ID'
+                            caption: 'Введите свой BetBoom ID',
+                            reply_markup: replyMarkup
                         });
                     } else {
                         const photoPath = getRegistrationPhotoPath();
@@ -50,7 +58,8 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                             try {
                                 const photoStream = createReadStream(photoPath);
                                 const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
-                                    caption: 'Введите свой BetBoom ID'
+                                    caption: 'Введите свой BetBoom ID',
+                                    reply_markup: replyMarkup
                                 });
                                 
                                 const photo = (sentMessage as any).photo;
@@ -59,10 +68,14 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                                     setRegistrationPhotoFileId(newFileId);
                                 }
                             } catch (error) {
-                                await ctx.reply('Введите свой BetBoom ID');
+                                await ctx.reply('Введите свой BetBoom ID', {
+                                    reply_markup: replyMarkup
+                                });
                             }
                         } else {
-                            await ctx.reply('Введите свой BetBoom ID');
+                            await ctx.reply('Введите свой BetBoom ID', {
+                                reply_markup: replyMarkup
+                            });
                         }
                     }
                     return;
@@ -75,10 +88,16 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
             registrationSessions.set(ctx.from.id, { state: 'registering' });
             
             const fileId = getRegistrationPhotoFileId();
+            const replyMarkup = {
+                inline_keyboard: [
+                    [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }]
+                ]
+            };
             
             if (fileId) {
                 await ctx.replyWithPhoto(fileId, {
-                    caption: 'Введите свой BetBoom ID'
+                    caption: 'Введите свой BetBoom ID',
+                    reply_markup: replyMarkup
                 });
             } else {
                 const photoPath = getRegistrationPhotoPath();
@@ -86,7 +105,8 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                     try {
                         const photoStream = createReadStream(photoPath);
                         const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
-                            caption: 'Введите свой BetBoom ID'
+                            caption: 'Введите свой BetBoom ID',
+                            reply_markup: replyMarkup
                         });
                         
                         const photo = (sentMessage as any).photo;
@@ -95,10 +115,14 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                             setRegistrationPhotoFileId(newFileId);
                         }
                     } catch (error) {
-                        await ctx.reply('Введите свой BetBoom ID');
+                        await ctx.reply('Введите свой BetBoom ID', {
+                            reply_markup: replyMarkup
+                        });
                     }
                 } else {
-                    await ctx.reply('Введите свой BetBoom ID');
+                    await ctx.reply('Введите свой BetBoom ID', {
+                        reply_markup: replyMarkup
+                    });
                 }
             }
             
@@ -138,7 +162,6 @@ export const handleRegistration = async (ctx: Context): Promise<boolean> => {
 
         const user = await userService.registerUser(chatId, firstName, lastName, username, betboomId);
         
-        const { ENV } = await import('../config/constants.js');
         const displayName = user.first_name || user.username || 'Пользователь';
         await ctx.reply(`*${displayName}*, вы зарегистрированы!`, {
             parse_mode: 'Markdown',
@@ -149,7 +172,6 @@ export const handleRegistration = async (ctx: Context): Promise<boolean> => {
             }
         });
         
-        const { UserHandlers } = await import('../handlers/user-handlers.js');
         const userHandlers = new UserHandlers();
         await userHandlers.showMainMenu(ctx);
         

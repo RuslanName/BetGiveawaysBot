@@ -8,6 +8,8 @@ import { parseDate, formatDate } from '../utils/date-parser.js';
 import { updateOrSendMessage } from '../utils/message-updater.js';
 import { AppDataSource } from '../config/db.js';
 import { Telegraf } from 'telegraf';
+import { ENV } from '../config/constants.js';
+import { User } from '../entities/index.js';
 
 interface AdminSession {
     state?: 'creating_event' | 'creating_contest' | 'creating_broadcast' | 'editing_event' | 'editing_contest' | 'setting_event_lost_message' | null;
@@ -686,13 +688,10 @@ export class AdminHandlers {
         try {
             const event = await this.betEventService.createEvent(matchName, winnerTeam, betAmount, coefficient, matchStartedAt, fileId);
             
-            const { User } = await import('../entities/index.js');
             const userRepository = AppDataSource.getRepository(User);
             const allUsers = await userRepository.find({ select: ['chat_id'] });
             for (const userRow of allUsers) {
                 try {
-                    const { ENV } = await import('../config/constants.js');
-                    
                     let message = `*Ставка: ${event.match_name}*\n`;
                     message += `Исход матча: ${event.winner_team}\n`;
                     message += `Сумма ставки: ${event.bet_amount}\n`;

@@ -4,6 +4,7 @@ import { BetEventService } from '../services/bet-event.service.js';
 import { ContestService } from '../services/contest.service.js';
 import { updateOrSendMessage } from '../utils/message-updater.js';
 import { formatDate } from '../utils/date-parser.js';
+import { ENV } from '../config/constants.js';
 
 interface UserSession {
     state?: 'registering' | 'betting' | 'picking_contest' | null;
@@ -108,7 +109,6 @@ export class UserHandlers {
     }
 
     async handleEventsButton(ctx: Context) {
-        const { ENV } = await import('../config/constants.js');
         await updateOrSendMessage(ctx, 'Бесплатная ставка', {
             reply_markup: {
                 inline_keyboard: [
@@ -177,8 +177,6 @@ export class UserHandlers {
         }
 
         sessions.set(chatId, { state: 'betting', betEventId: eventId });
-        
-        const { ENV } = await import('../config/constants.js');
         
         let message = `Матч «${event.match_name}»\n`;
         message += `Исход матча: ${event.winner_team}\n`;
