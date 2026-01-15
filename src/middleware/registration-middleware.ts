@@ -49,7 +49,7 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                     
                     if (fileId) {
                         await ctx.replyWithPhoto(fileId, {
-                            caption: 'Введите свой BetBoom ID',
+                            caption: 'Для регистрации в боте введите ID своего аккаунта в BetBoom',
                             reply_markup: replyMarkup
                         });
                     } else {
@@ -58,7 +58,7 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                             try {
                                 const photoStream = createReadStream(photoPath);
                                 const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
-                                    caption: 'Введите свой BetBoom ID',
+                                    caption: 'Для регистрации в боте введите ID своего аккаунта в BetBoom',
                                     reply_markup: replyMarkup
                                 });
                                 
@@ -68,12 +68,12 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                                     setRegistrationPhotoFileId(newFileId);
                                 }
                             } catch (error) {
-                                await ctx.reply('Введите свой BetBoom ID', {
+                                await ctx.reply('Для регистрации в боте введите ID своего аккаунта в BetBoom', {
                                     reply_markup: replyMarkup
                                 });
                             }
                         } else {
-                            await ctx.reply('Введите свой BetBoom ID', {
+                            await ctx.reply('Для регистрации в боте введите ID своего аккаунта в BetBoom', {
                                 reply_markup: replyMarkup
                             });
                         }
@@ -96,7 +96,7 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
             
             if (fileId) {
                 await ctx.replyWithPhoto(fileId, {
-                    caption: 'Введите свой BetBoom ID',
+                    caption: 'Для регистрации в боте введите ID своего аккаунта в BetBoom',
                     reply_markup: replyMarkup
                 });
             } else {
@@ -105,7 +105,7 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                     try {
                         const photoStream = createReadStream(photoPath);
                         const sentMessage = await ctx.replyWithPhoto({ source: photoStream, filename: 'registration-photo.jpg' }, {
-                            caption: 'Введите свой BetBoom ID',
+                            caption: 'Для регистрации в боте введите ID своего аккаунта в BetBoom',
                             reply_markup: replyMarkup
                         });
                         
@@ -115,12 +115,12 @@ export const checkRegistration = (): MiddlewareFn<Context> => {
                             setRegistrationPhotoFileId(newFileId);
                         }
                     } catch (error) {
-                        await ctx.reply('Введите свой BetBoom ID', {
+                        await ctx.reply('Для регистрации в боте введите ID своего аккаунта в BetBoom', {
                             reply_markup: replyMarkup
                         });
                     }
                 } else {
-                    await ctx.reply('Введите свой BetBoom ID', {
+                    await ctx.reply('Для регистрации в боте введите ID своего аккаунта в BetBoom', {
                         reply_markup: replyMarkup
                     });
                 }

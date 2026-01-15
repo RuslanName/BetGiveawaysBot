@@ -2,6 +2,11 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 export type BetEventStatus = 'active' | 'completed' | 'cancelled';
 
+export enum BetEventType {
+    MAIN_TIME = 'main_time',
+    TOTAL_WIN = 'total_win'
+}
+
 @Entity('bet_events')
 export class BetEvent {
     @PrimaryGeneratedColumn()
@@ -24,6 +29,12 @@ export class BetEvent {
 
     @Column({ type: 'varchar', length: 255, nullable: true, name: 'file_id' })
     file_id!: string | null;
+
+    @Column({ type: 'varchar', length: 500, nullable: true, name: 'betboom_url' })
+    betboom_url!: string | null;
+
+    @Column({ type: 'varchar', length: 50, name: 'event_type' })
+    event_type!: BetEventType;
 
     @Column({ type: 'boolean', nullable: true, name: 'is_won' })
     is_won!: boolean | null;

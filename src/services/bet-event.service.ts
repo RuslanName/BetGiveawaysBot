@@ -1,12 +1,12 @@
 import { BetEventRepository } from '../repositories/bet-event.repository.js';
 import { UserBetRepository } from '../repositories/user-bet.repository.js';
-import { BetEvent } from '../entities/index.js';
+import { BetEvent, BetEventType } from '../entities/index.js';
 
 export class BetEventService {
     private eventRepo = new BetEventRepository();
     private betRepo = new UserBetRepository();
 
-    async createEvent(matchName: string, winnerTeam: string, betAmount: number, coefficient: number, matchStartedAt: Date, fileId: string | null): Promise<BetEvent> {
+    async createEvent(matchName: string, winnerTeam: string, betAmount: number, coefficient: number, matchStartedAt: Date, fileId: string | null, betboomUrl: string | null, eventType: BetEventType): Promise<BetEvent> {
         return this.eventRepo.create({
             match_name: matchName,
             winner_team: winnerTeam,
@@ -14,6 +14,8 @@ export class BetEventService {
             coefficient: coefficient,
             match_started_at: matchStartedAt,
             file_id: fileId,
+            betboom_url: betboomUrl,
+            event_type: eventType,
             status: 'active'
         });
     }
@@ -183,6 +185,10 @@ export class BetEventService {
 
     async updateEvent(id: number, updates: Partial<BetEvent>): Promise<BetEvent> {
         return this.eventRepo.update(id, updates);
+    }
+
+    async updateEventBetboomUrl(eventId: number, betboomUrl: string): Promise<void> {
+        await this.eventRepo.update(eventId, { betboom_url: betboomUrl });
     }
 }
 

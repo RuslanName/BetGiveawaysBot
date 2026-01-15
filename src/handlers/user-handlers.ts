@@ -1,7 +1,9 @@
 import { Context } from 'telegraf';
 import { UserService } from '../services/user.service.js';
 import { BetEventService } from '../services/bet-event.service.js';
+import { BetEventType } from '../entities/index.js';
 import { ContestService } from '../services/contest.service.js';
+import { GiveawayService } from '../services/giveaway.service.js';
 import { updateOrSendMessage } from '../utils/message-updater.js';
 import { formatDate } from '../utils/date-parser.js';
 import { ENV } from '../config/constants.js';
@@ -19,6 +21,7 @@ export class UserHandlers {
     private userService = new UserService();
     private betEventService = new BetEventService();
     private contestService = new ContestService();
+    private giveawayService = new GiveawayService();
 
     async handleStart(ctx: Context) {
         await this.showMainMenu(ctx);
@@ -46,7 +49,7 @@ export class UserHandlers {
         
         if (text === 'Отменить') {
             sessions.set(chatId, { state: null });
-            await this.handleEventsMatches(ctx);
+            await this.handleEventsButton(ctx);
             return;
         }
 
@@ -100,7 +103,7 @@ export class UserHandlers {
                 await this.betEventService.addBet(user.id, session.betEventId, session.ticketId, fileId);
                 sessions.set(chatId, { state: null });
                 await ctx.deleteMessage().catch(() => {});
-                await ctx.reply('Ваша ставка принята!');
+                await ctx.reply('Вы участвуете!');
                 await this.showMainMenu(ctx);
             } catch (error: any) {
                 await ctx.reply(error.message || 'Ошибка при добавлении ставки');
@@ -109,18 +112,6 @@ export class UserHandlers {
     }
 
     async handleEventsButton(ctx: Context) {
-        await updateOrSendMessage(ctx, 'Бесплатная ставка', {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Матчи', callback_data: 'menu:events:matches' }],
-                    [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }],
-                    [{ text: 'Главное меню', callback_data: 'menu:back' }]
-                ]
-            }
-        });
-    }
-
-    async handleEventsMatches(ctx: Context) {
         const chatId = ctx.from?.id;
         if (!chatId) return;
 
@@ -133,7 +124,7 @@ export class UserHandlers {
             await updateOrSendMessage(ctx, 'Нет активных матчей', {
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: 'Назад', callback_data: 'menu:events' }]
+                        [{ text: 'Главное меню', callback_data: 'menu:back' }]
                     ]
                 }
             });
@@ -143,15 +134,16 @@ export class UserHandlers {
         const keyboard: any[] = [];
         for (const event of events) {
             const hasBet = await this.betEventService.hasUserBet(user.id, event.id);
-            const buttonText = hasBet ? `${event.match_name} (отправлено)` : event.match_name;
+            const buttonText = hasBet ? `${event.match_name} (участвуете)` : event.match_name;
             keyboard.push([{
                 text: buttonText,
                 callback_data: `event:select:${event.id}`
             }]);
         }
-        keyboard.push([{ text: 'Назад', callback_data: 'menu:events' }]);
+        keyboard.push([{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }]);
+        keyboard.push([{ text: 'Главное меню', callback_data: 'menu:back' }]);
 
-        await updateOrSendMessage(ctx, 'Выберите матч:', {
+        await updateOrSendMessage(ctx, 'Бесплатная ставка', {
             reply_markup: { inline_keyboard: keyboard }
         });
     }
@@ -176,25 +168,31 @@ export class UserHandlers {
             return;
         }
 
-        sessions.set(chatId, { state: 'betting', betEventId: eventId });
+        const isMainTime = event.event_type === BetEventType.MAIN_TIME;
+        const betType = isMainTime ? 'победу' : 'итоговую победу';
+        const timeText = isMainTime ? ' в основное время' : '';
         
-        let message = `Матч «${event.match_name}»\n`;
-        message += `Исход матча: ${event.winner_team}\n`;
-        message += `Сумма ставки: ${event.bet_amount}\n`;
-            message += `Коэффициент: ${event.coefficient}\n`;
-        message += `Дата начала матча: ${formatDate(event.match_started_at)}\n\n`;
-        message += 'Введите ID билета';
+        let message = `Для участия в акции вам необходимо поставить ${event.bet_amount} рублей на ${betType} «${event.winner_team}»${timeText} в матче «${event.match_name}»\n\n`;
+        message += `В случае, если ставка не сыграет, на ваш игровой счёт вернётся ${event.bet_amount} фрибетом\n\n`;
+        message += `Участвовать в акции можно до ${formatDate(event.match_started_at)}`;
+        
+        const replyMarkup: any = {
+            inline_keyboard: [
+                [{ text: 'Ввести ID билета для участия', callback_data: `bet:input_ticket:${eventId}` }]
+            ]
+        };
+
+        if (event.betboom_url) {
+            replyMarkup.inline_keyboard.push([{ text: 'Сделать ставку на сайте BetBoom', url: event.betboom_url }]);
+        }
+        
+        replyMarkup.inline_keyboard.push([{ text: 'Назад', callback_data: 'bet:cancel' }]);
         
         await updateOrSendMessage(
             ctx,
             message,
             {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }],
-                        [{ text: 'Отменить', callback_data: 'bet:cancel' }]
-                    ]
-                },
+                reply_markup: replyMarkup,
                 photo: event.file_id || undefined
             }
         );
@@ -217,7 +215,7 @@ export class UserHandlers {
                 await this.betEventService.addBet(user.id, session.betEventId, session.ticketId, null);
                 sessions.set(chatId, { state: null });
                 await ctx.deleteMessage().catch(() => {});
-                await ctx.reply('Ваша ставка принята!');
+                await ctx.reply('Вы участвуете!');
                 await this.showMainMenu(ctx);
             } catch (error: any) {
                 await ctx.reply(error.message || 'Ошибка при добавлении ставки');
@@ -230,12 +228,45 @@ export class UserHandlers {
         if (!chatId) return;
 
         sessions.set(chatId, { state: null });
-        await ctx.deleteMessage().catch(() => {});
-        await this.handleEventsMatches(ctx);
+        await this.handleEventsButton(ctx);
+    }
+
+    async handleBetInputTicket(ctx: Context, eventId: number) {
+        const chatId = ctx.from?.id;
+        if (!chatId) return;
+
+        const user = await this.userService.getUserByChatId(chatId);
+        if (!user) return;
+
+        const event = await this.betEventService.getEventById(eventId);
+        if (!event || event.status !== 'active') {
+            await ctx.answerCbQuery('Событие не найдено или неактивно', { show_alert: true });
+            return;
+        }
+
+        const hasBet = await this.betEventService.hasUserBet(user.id, eventId);
+        if (hasBet) {
+            await ctx.answerCbQuery('Вы уже отправили ставку на это событие. Нельзя отправить ставку дважды.', { show_alert: true });
+            return;
+        }
+
+        sessions.set(chatId, { state: 'betting', betEventId: eventId });
+        
+        await updateOrSendMessage(
+            ctx,
+            'Введите ID билета',
+            {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Отменить', callback_data: 'bet:cancel' }]
+                    ]
+                }
+            }
+        );
     }
 
     async showMainMenu(ctx: Context) {
-        await updateOrSendMessage(ctx, 'Главное меню', {
+        await updateOrSendMessage(ctx, 'Выберите событие, в котором хотите поучаствовать', {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Бесплатная ставка', callback_data: 'menu:events' }],
@@ -320,22 +351,27 @@ export class UserHandlers {
 
         sessions.set(chatId, { state: 'picking_contest', contestId });
         
-        let message = `Матч «${contest.match_name}»\n`;
-        message += `Дата начала матча: ${formatDate(contest.match_started_at)}\n\n`;
-        message += 'Выберите исход матча:';
+        let fileId: string | undefined = undefined;
+        if (contest.giveaway_id) {
+            const giveaway = await this.giveawayService.getGiveawayById(contest.giveaway_id);
+            if (giveaway) {
+                fileId = giveaway.file_id;
+            }
+        }
         
         await updateOrSendMessage(
             ctx,
-            message,
+            'Выберите исход матча:',
             {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: `Победа «${contest.team_1}»`, callback_data: `contest:pick:${contestId}:team_1_win` }],
                         [{ text: 'Ничья', callback_data: `contest:pick:${contestId}:draw` }],
                         [{ text: `Победа «${contest.team_2}»`, callback_data: `contest:pick:${contestId}:team_2_win` }],
-                        [{ text: 'Отменить', callback_data: 'contest:cancel' }]
+                        [{ text: 'Отменить', callback_data: 'menu:giveaways:matches' }]
                     ]
-                }
+                },
+                photo: fileId
             }
         );
     }

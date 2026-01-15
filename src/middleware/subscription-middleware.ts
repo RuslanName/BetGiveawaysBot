@@ -27,7 +27,7 @@ export const checkSubscription = (channelChatId: string, channelUrl: string): Mi
             if (!isSubscribed) {
                 await updateOrSendMessage(
                     ctx,
-                    'Для использования бота необходимо подписаться на канал.',
+                    'Для использования бота необходимо быть подписанным на канал «Роганов Хоккей»',
                     {
                         reply_markup: {
                             inline_keyboard: [
@@ -43,7 +43,6 @@ export const checkSubscription = (channelChatId: string, channelUrl: string): Mi
             await checkRegistration()(ctx, next);
         } catch (error) {
             console.error('Error checking subscription:', error);
-            await next();
         }
     };
 };

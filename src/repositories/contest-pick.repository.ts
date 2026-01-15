@@ -24,7 +24,7 @@ export class ContestPickRepository {
         const { Contest } = await import('../entities/index.js');
         const contestRepo = AppDataSource.getRepository(Contest);
         const contests = await contestRepo.find({
-            where: { status: 'match_finished' },
+            where: { status: 'completed' },
             select: ['id']
         });
 
@@ -74,7 +74,7 @@ export class ContestPickRepository {
         const { Contest } = await import('../entities/index.js');
         const contestRepo = AppDataSource.getRepository(Contest);
         const contests = await contestRepo.find({
-            where: { status: 'match_finished' },
+            where: { status: 'completed' },
             select: ['id']
         });
 
@@ -111,7 +111,7 @@ export class ContestPickRepository {
         const { Contest } = await import('../entities/index.js');
         const contestRepo = AppDataSource.getRepository(Contest);
         const contests = await contestRepo.find({
-            where: { status: 'match_finished' },
+            where: { status: 'completed' },
             select: ['id']
         });
 
@@ -135,10 +135,7 @@ export class ContestPickRepository {
         const { Contest } = await import('../entities/index.js');
         const contestRepo = AppDataSource.getRepository(Contest);
         const contests = await contestRepo.find({
-            where: [
-                { status: 'active' },
-                { status: 'match_finished' }
-            ],
+            where: { status: 'active' },
             select: ['id']
         });
 

@@ -2,17 +2,20 @@ import { ContestRepository } from '../repositories/contest.repository.js';
 import { ContestPickRepository } from '../repositories/contest-pick.repository.js';
 import {Contest, ContestPick, type PickedOutcome} from '../entities/index.js';
 import { Telegraf } from 'telegraf';
+import { GiveawayService } from './giveaway.service.js';
 
 export class ContestService {
     private contestRepo = new ContestRepository();
     private pickRepo = new ContestPickRepository();
+    private giveawayService = new GiveawayService();
 
-    async createContest(matchName: string, team1: string, team2: string, matchStartedAt: Date): Promise<Contest> {
+    async createContest(matchName: string, team1: string, team2: string, matchStartedAt: Date, giveawayId: number | null): Promise<Contest> {
         return this.contestRepo.create({
             match_name: matchName,
             team_1: team1,
             team_2: team2,
             match_started_at: matchStartedAt,
+            giveaway_id: giveawayId,
             status: 'active',
             picked_outcome: null
         });
@@ -23,7 +26,7 @@ export class ContestService {
     }
 
     async getContestsForAdmin(): Promise<Contest[]> {
-        return this.contestRepo.findActiveAndMatchFinished();
+        return this.contestRepo.findActiveAndCompleted();
     }
 
     async getActiveContests(): Promise<Contest[]> {
@@ -68,23 +71,38 @@ export class ContestService {
 
         await this.contestRepo.update(contestId, {
             picked_outcome: outcome,
-            status: 'match_finished'
+            status: 'completed'
         });
     }
 
     async finalizeContests(bot: Telegraf): Promise<void> {
-        const contests = await this.contestRepo.findAllWithOutcome();
+        const activeGiveaway = await this.giveawayService.getActiveGiveaway();
+        if (!activeGiveaway) {
+            throw new Error('No active giveaway found');
+        }
+
+        const contests = await this.contestRepo.find({
+            where: {
+                giveaway_id: activeGiveaway.id,
+                status: 'completed'
+            }
+        });
+
         if (contests.length === 0) {
-            throw new Error('No contests with outcomes found');
+            throw new Error('No completed contests found');
         }
 
         const topUsers = await this.pickRepo.getTopUsers(20);
 
         let message = '*Топ-20 пользователей по итогам розыгрыша:*\n';
-        topUsers.forEach((item, index) => {
-            const username = item.user.username ? `@${item.user.username}` : 'пользователь';
-            message += `${index + 1}) ${username} (BetBoom ID: ${item.user.betboom_id}) - ${item.points}\n`;
-        });
+        if (topUsers.length === 0) {
+            message += 'Нет пользователей\n';
+        } else {
+            topUsers.forEach((item, index) => {
+                const username = item.user.username ? `@${item.user.username}` : 'пользователь';
+                message += `${index + 1}) ${username} (BetBoom ID: ${item.user.betboom_id}) - ${item.points}\n`;
+            });
+        }
 
         const { ENV } = await import('../config/constants.js');
         const adminIds = ENV.ADMIN_CHAT_IDS.split(',').map(id => parseInt(id.trim()));
@@ -96,23 +114,7 @@ export class ContestService {
             }
         }
 
-        for (const contest of contests) {
-            await this.contestRepo.update(contest.id, { status: 'completed' });
-        }
-    }
-
-    async findFinishedContests(): Promise<Contest[]> {
-        return this.contestRepo.findFinishedContests();
-    }
-
-    async processFinishedContest(contestId: number): Promise<void> {
-        const contest = await this.contestRepo.findById(contestId);
-        if (!contest) return;
-
-        const now = new Date();
-        if (contest.match_started_at <= now && contest.status === 'active') {
-            await this.contestRepo.update(contestId, { status: 'match_finished' });
-        }
+        await this.giveawayService.completeGiveaway(activeGiveaway.id);
     }
 
     async getTotalParticipantsCount(): Promise<number> {
@@ -120,9 +122,26 @@ export class ContestService {
     }
 
     async canFinalizeContests(): Promise<boolean> {
-        const activeContests = await this.contestRepo.findByStatus('active');
-        const matchFinishedContests = await this.contestRepo.findByStatus('match_finished');
-        return activeContests.length === 0 && matchFinishedContests.length > 0;
+        const activeGiveaway = await this.giveawayService.getActiveGiveaway();
+        if (!activeGiveaway) {
+            return false;
+        }
+
+        const activeContests = await this.contestRepo.find({
+            where: {
+                giveaway_id: activeGiveaway.id,
+                status: 'active'
+            }
+        });
+
+        const completedContests = await this.contestRepo.find({
+            where: {
+                giveaway_id: activeGiveaway.id,
+                status: 'completed'
+            }
+        });
+
+        return activeContests.length === 0 && completedContests.length > 0;
     }
 }
 

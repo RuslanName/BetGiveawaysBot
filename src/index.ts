@@ -11,6 +11,7 @@ import { updateOrSendMessage } from './utils/message-updater.js';
 import { ENV } from './config/constants.js';
 import { initCron } from './utils/cron.js';
 import { UserService } from './services/user.service.js';
+import { BetEventType } from './entities/index.js';
 
 const bot = new Telegraf(ENV.BOT_TOKEN);
 const userHandlers = new UserHandlers();
@@ -85,11 +86,6 @@ bot.action(/^menu:events$/, async (ctx) => {
     await userHandlers.handleEventsButton(ctx);
 });
 
-bot.action(/^menu:events:matches$/, async (ctx) => {
-    await ctx.answerCbQuery();
-    await userHandlers.handleEventsMatches(ctx);
-});
-
 bot.action(/^event:select:(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery();
     const eventId = parseInt(ctx.match[1]);
@@ -102,8 +98,22 @@ bot.action(/^bet:skip_photo$/, async (ctx) => {
 });
 
 bot.action(/^bet:cancel$/, async (ctx) => {
-    await ctx.answerCbQuery();
+    try {
+        await ctx.answerCbQuery();
+    } catch (error) {
+        console.error('Error answering callback query:', error);
+    }
     await userHandlers.handleBetCancel(ctx);
+});
+
+bot.action(/^bet:input_ticket:(\d+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+    } catch (error) {
+        console.error('Error answering callback query:', error);
+    }
+    const eventId = parseInt(ctx.match[1]);
+    await userHandlers.handleBetInputTicket(ctx, eventId);
 });
 
 bot.action(/^menu:giveaways$/, async (ctx) => {
@@ -160,7 +170,7 @@ bot.action(/^check_subscription$/, async (ctx) => {
             const userService = new UserService();
             const user = await userService.getUserByChatId(ctx.from.id);
             if (!user) {
-                await updateOrSendMessage(ctx, 'Введите свой BetBoom ID');
+                await updateOrSendMessage(ctx, 'Для регистрации в боте введите ID своего аккаунта в BetBoom');
             }
         } else {
             await ctx.answerCbQuery('Вы не подписаны на канал', { show_alert: true });
@@ -368,10 +378,22 @@ bot.action(/^admin:event:create_cancel$/, async (ctx) => {
     await adminHandlers.handleEventCreateCancel(ctx);
 });
 
+bot.action(/^admin:event_type:(main_time|total_win)$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    const eventType = ctx.match[1] === 'main_time' ? BetEventType.MAIN_TIME : BetEventType.TOTAL_WIN;
+    await adminHandlers.handleEventType(ctx, eventType);
+});
+
 bot.action(/^admin:contest:create_cancel$/, async (ctx) => {
     if (!isAdmin(ctx.from?.id || 0)) return;
     await ctx.answerCbQuery();
     await adminHandlers.handleContestCreateCancel(ctx);
+});
+
+bot.action(/^admin:giveaway:update_photo$/, async (ctx) => {
+    if (!isAdmin(ctx.from?.id || 0)) return;
+    await ctx.answerCbQuery();
+    await adminHandlers.handleGiveawayUpdatePhoto(ctx);
 });
 
 async function start() {

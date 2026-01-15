@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { User, BetEvent, UserBet, Broadcast, Contest, ContestPick } from '../entities/index.js';
+import { User, BetEvent, UserBet, Broadcast, Contest, ContestPick, Giveaway } from '../entities/index.js';
 import { ENV } from './constants.js';
 
 const isDev = ENV.MODE === 'dev';
@@ -13,7 +13,7 @@ export const AppDataSource = new DataSource({
     password: ENV.DB_PASSWORD,
     database: ENV.DB_NAME,
     schema: ENV.DB_SCHEMA,
-    entities: [User, BetEvent, UserBet, Broadcast, Contest, ContestPick],
+    entities: [User, BetEvent, UserBet, Broadcast, Contest, ContestPick, Giveaway],
     synchronize: isDev,
     logging: isDev,
 });

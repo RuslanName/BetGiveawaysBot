@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { Repository, type FindManyOptions } from 'typeorm';
 import { AppDataSource } from '../config/db.js';
 import { Contest, type ContestStatus } from '../entities/index.js';
 
@@ -17,14 +17,18 @@ export class ContestRepository {
         return this.repository.find({ where: { status }, order: { created_at: 'DESC' } });
     }
 
-    async findActiveAndMatchFinished(): Promise<Contest[]> {
+    async findActiveAndCompleted(): Promise<Contest[]> {
         return this.repository.find({
             where: [
                 { status: 'active' },
-                { status: 'match_finished' }
+                { status: 'completed' }
             ],
             order: { created_at: 'DESC' }
         });
+    }
+
+    async find(conditions: FindManyOptions<Contest>): Promise<Contest[]> {
+        return this.repository.find(conditions);
     }
 
     async create(contest: Partial<Contest>): Promise<Contest> {
@@ -43,20 +47,5 @@ export class ContestRepository {
         await this.repository.update(id, { status: 'cancelled' });
     }
 
-    async findFinishedContests(): Promise<Contest[]> {
-        const now = new Date();
-        return this.repository
-            .createQueryBuilder('contest')
-            .where('contest.status = :status', { status: 'active' })
-            .andWhere('contest.match_started_at <= :now', { now })
-            .getMany();
-    }
-
-    async findAllWithOutcome(): Promise<Contest[]> {
-        return this.repository.find({
-            where: { status: 'match_finished' },
-            order: { created_at: 'DESC' }
-        });
-    }
 }
 

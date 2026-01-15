@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-export type ContestStatus = 'active' | 'match_finished' | 'completed' | 'cancelled';
+export type ContestStatus = 'active' | 'completed' | 'cancelled';
 export type PickedOutcome = 'team_1_win' | 'team_2_win' | 'draw';
 
 @Entity('contests')
@@ -19,6 +19,9 @@ export class Contest {
 
     @Column({ type: 'timestamp', name: 'match_started_at' })
     match_started_at!: Date;
+
+    @Column({ type: 'integer', nullable: true, name: 'giveaway_id' })
+    giveaway_id!: number | null;
 
     @Column({ type: 'varchar', length: 20, nullable: true, name: 'picked_outcome' })
     picked_outcome!: PickedOutcome | null;
