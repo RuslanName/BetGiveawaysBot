@@ -691,6 +691,8 @@ export class AdminHandlers {
             const allUsers = await userRepository.find({ select: ['chat_id'] });
             for (const userRow of allUsers) {
                 try {
+                    const { ENV } = await import('../config/constants.js');
+                    
                     let message = `*Ставка: ${event.match_name}*\n`;
                     message += `Исход матча: ${event.winner_team}\n`;
                     message += `Сумма ставки: ${event.bet_amount}\n`;
@@ -698,9 +700,10 @@ export class AdminHandlers {
                     message += `Дата окончания: ${formatDate(event.match_started_at)}`;
 
                     const replyMarkup = {
-                        inline_keyboard: [[
-                            { text: 'УЧАСТВОВАТЬ', callback_data: `event:select:${event.id}` }
-                        ]]
+                        inline_keyboard: [
+                            [{ text: 'УЧАСТВОВАТЬ', callback_data: `event:select:${event.id}` }],
+                            [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }]
+                        ]
                     };
 
                     if (fileId) {

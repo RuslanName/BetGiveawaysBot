@@ -45,7 +45,7 @@ export class UserHandlers {
         
         if (text === 'Отменить') {
             sessions.set(chatId, { state: null });
-            await this.handleEventsButton(ctx);
+            await this.handleEventsMatches(ctx);
             return;
         }
 
@@ -108,6 +108,19 @@ export class UserHandlers {
     }
 
     async handleEventsButton(ctx: Context) {
+        const { ENV } = await import('../config/constants.js');
+        await updateOrSendMessage(ctx, 'Бесплатная ставка', {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Матчи', callback_data: 'menu:events:matches' }],
+                    [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }],
+                    [{ text: 'Главное меню', callback_data: 'menu:back' }]
+                ]
+            }
+        });
+    }
+
+    async handleEventsMatches(ctx: Context) {
         const chatId = ctx.from?.id;
         if (!chatId) return;
 
@@ -120,7 +133,7 @@ export class UserHandlers {
             await updateOrSendMessage(ctx, 'Нет активных матчей', {
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: 'Главное меню', callback_data: 'menu:back' }]
+                        [{ text: 'Назад', callback_data: 'menu:events' }]
                     ]
                 }
             });
@@ -136,12 +149,13 @@ export class UserHandlers {
                 callback_data: `event:select:${event.id}`
             }]);
         }
-        keyboard.push([{ text: 'Главное меню', callback_data: 'menu:back' }]);
+        keyboard.push([{ text: 'Назад', callback_data: 'menu:events' }]);
 
         await updateOrSendMessage(ctx, 'Выберите матч:', {
             reply_markup: { inline_keyboard: keyboard }
         });
     }
+
 
     async handleEventSelect(ctx: Context, eventId: number) {
         const chatId = ctx.from?.id;
@@ -164,6 +178,8 @@ export class UserHandlers {
 
         sessions.set(chatId, { state: 'betting', betEventId: eventId });
         
+        const { ENV } = await import('../config/constants.js');
+        
         let message = `Матч «${event.match_name}»\n`;
         message += `Исход матча: ${event.winner_team}\n`;
         message += `Сумма ставки: ${event.bet_amount}\n`;
@@ -176,9 +192,10 @@ export class UserHandlers {
             message,
             {
                 reply_markup: {
-                    inline_keyboard: [[
-                        { text: 'Отменить', callback_data: 'bet:cancel' }
-                    ]]
+                    inline_keyboard: [
+                        [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }],
+                        [{ text: 'Отменить', callback_data: 'bet:cancel' }]
+                    ]
                 },
                 photo: event.file_id || undefined
             }
@@ -216,7 +233,7 @@ export class UserHandlers {
 
         sessions.set(chatId, { state: null });
         await ctx.deleteMessage().catch(() => {});
-        await this.handleEventsButton(ctx);
+        await this.handleEventsMatches(ctx);
     }
 
     async showMainMenu(ctx: Context) {

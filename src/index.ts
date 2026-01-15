@@ -84,6 +84,11 @@ bot.action(/^menu:events$/, async (ctx) => {
     await userHandlers.handleEventsButton(ctx);
 });
 
+bot.action(/^menu:events:matches$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await userHandlers.handleEventsMatches(ctx);
+});
+
 bot.action(/^event:select:(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery();
     const eventId = parseInt(ctx.match[1]);

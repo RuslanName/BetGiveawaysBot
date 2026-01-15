@@ -11,6 +11,9 @@ export const ENV = {
     DB_SCHEMA: process.env.DB_SCHEMA ?? 'public',
     ADMIN_CHAT_IDS: process.env.ADMIN_CHAT_IDS!,
     CHANNEL_CHAT_ID: process.env.CHANNEL_CHAT_ID!,
-    CHANNEL_URL: process.env.CHANNEL_URL!
+    CHANNEL_URL: process.env.CHANNEL_URL!,
+    BETBOOM_REGISTRATION_URL: process.env.BETBOOM_REGISTRATION_URL!
 };
+
+export const REGISTRATION_PHOTO_PATH = 'assets/registration-photo.jpg';
 

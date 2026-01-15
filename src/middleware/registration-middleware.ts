@@ -138,9 +138,15 @@ export const handleRegistration = async (ctx: Context): Promise<boolean> => {
 
         const user = await userService.registerUser(chatId, firstName, lastName, username, betboomId);
         
+        const { ENV } = await import('../config/constants.js');
         const displayName = user.first_name || user.username || 'Пользователь';
         await ctx.reply(`*${displayName}*, вы зарегистрированы!`, {
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }]
+                ]
+            }
         });
         
         const { UserHandlers } = await import('../handlers/user-handlers.js');
