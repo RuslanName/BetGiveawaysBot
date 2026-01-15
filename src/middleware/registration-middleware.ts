@@ -164,12 +164,7 @@ export const handleRegistration = async (ctx: Context): Promise<boolean> => {
         
         const displayName = user.first_name || user.username || 'Пользователь';
         await ctx.reply(`*${displayName}*, вы зарегистрированы!`, {
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Регистрация в BetBoom', url: ENV.BETBOOM_REGISTRATION_URL }]
-                ]
-            }
+            parse_mode: 'Markdown'
         });
         
         const userHandlers = new UserHandlers();
