@@ -11,9 +11,9 @@ export class ContestService {
 
     async createContest(matchName: string, team1: string, team2: string, matchStartedAt: Date, giveawayId: number | null): Promise<Contest> {
         return this.contestRepo.create({
-            match_name: matchName,
-            team_1: team1,
-            team_2: team2,
+            match_name: matchName.trim(),
+            team_1: team1.trim(),
+            team_2: team2.trim(),
             match_started_at: matchStartedAt,
             giveaway_id: giveawayId,
             status: 'active',
@@ -38,7 +38,17 @@ export class ContestService {
     }
 
     async updateContest(id: number, updates: Partial<Contest>): Promise<Contest> {
-        return this.contestRepo.update(id, updates);
+        const trimmedUpdates: Partial<Contest> = { ...updates };
+        if (trimmedUpdates.match_name) {
+            trimmedUpdates.match_name = trimmedUpdates.match_name.trim();
+        }
+        if (trimmedUpdates.team_1) {
+            trimmedUpdates.team_1 = trimmedUpdates.team_1.trim();
+        }
+        if (trimmedUpdates.team_2) {
+            trimmedUpdates.team_2 = trimmedUpdates.team_2.trim();
+        }
+        return this.contestRepo.update(id, trimmedUpdates);
     }
 
     async addPick(userId: number, contestId: number, pickedOutcome: PickedOutcome): Promise<void> {

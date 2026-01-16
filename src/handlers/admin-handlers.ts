@@ -702,23 +702,27 @@ export class AdminHandlers {
         }
 
         const [matchName, winnerTeam, betAmountStr, coefficientStr, dateStr, betboomUrl] = lines;
-        const betAmount = parseInt(betAmountStr);
-        const coefficient = parseFloat(coefficientStr);
-        const matchStartedAt = parseDate(dateStr);
+        const betAmount = parseInt(betAmountStr.trim());
+        const coefficient = parseFloat(coefficientStr.trim());
+        const matchStartedAt = parseDate(dateStr.trim());
 
         if (isNaN(betAmount) || isNaN(coefficient) || !matchStartedAt) {
             await ctx.reply('Неверный формат суммы ставки, коэффициента или даты');
             return;
         }
 
-        if (!betboomUrl || !betboomUrl.trim() || (!betboomUrl.startsWith('http://') && !betboomUrl.startsWith('https://'))) {
+        const trimmedMatchName = matchName.trim();
+        const trimmedWinnerTeam = winnerTeam.trim();
+        const trimmedBetboomUrl = betboomUrl.trim();
+
+        if (!trimmedBetboomUrl || (!trimmedBetboomUrl.startsWith('http://') && !trimmedBetboomUrl.startsWith('https://'))) {
             await ctx.reply('Неверный формат ссылки на матч в BetBoom. Ссылка должна начинаться с http:// или https://');
             return;
         }
 
         const fileId = photo ? photo[photo.length - 1].file_id : null;
 
-        sessions.set(chatId, { state: 'creating_event_type', data: { matchName, winnerTeam, betAmount, coefficient, matchStartedAt, fileId, betboomUrl: betboomUrl.trim() } });
+        sessions.set(chatId, { state: 'creating_event_type', data: { matchName: trimmedMatchName, winnerTeam: trimmedWinnerTeam, betAmount, coefficient, matchStartedAt, fileId, betboomUrl: trimmedBetboomUrl } });
         await updateOrSendMessage(ctx, 'Какое типа событие?', {
             reply_markup: {
                 inline_keyboard: [
@@ -869,7 +873,7 @@ export class AdminHandlers {
         }
 
         const [matchName, team1, team2, dateStr] = lines;
-        const matchStartedAt = parseDate(dateStr);
+        const matchStartedAt = parseDate(dateStr.trim());
 
         if (!matchStartedAt) {
             await ctx.reply('Неверный формат даты');
@@ -877,7 +881,7 @@ export class AdminHandlers {
         }
 
         try {
-            await this.contestService.createContest(matchName, team1, team2, matchStartedAt, giveawayId);
+            await this.contestService.createContest(matchName.trim(), team1.trim(), team2.trim(), matchStartedAt, giveawayId);
             sessions.set(chatId, { state: null });
             await ctx.reply(`Матч «${matchName}» для розыгрыша создан`);
             await this.handleGiveaways(ctx);
@@ -924,22 +928,23 @@ export class AdminHandlers {
             return;
         }
 
-        let caption = text || null;
+        let caption = text?.trim() || null;
         let url: string | null = null;
         let buttonText: string | null = null;
 
         if (text) {
+            const trimmedText = text.trim();
             const urlRegex = /(https?:\/\/[^\s]+)/g;
-            const matches = text.match(urlRegex);
+            const matches = trimmedText.match(urlRegex);
             if (matches && matches.length > 0) {
-                url = matches[matches.length - 1];
-                const lastIndex = text.lastIndexOf(url);
+                url = matches[matches.length - 1].trim();
+                const lastIndex = trimmedText.lastIndexOf(url);
                 if (lastIndex !== -1) {
-                    const afterUrl = text.substring(lastIndex + url.length).trim();
+                    const afterUrl = trimmedText.substring(lastIndex + url.length).trim();
                     if (afterUrl) {
                         buttonText = afterUrl;
                     }
-                    caption = text.substring(0, lastIndex).trim() || null;
+                    caption = trimmedText.substring(0, lastIndex).trim() || null;
                 }
             }
         }
@@ -986,25 +991,25 @@ export class AdminHandlers {
             }
 
             if (field === 'match_name') {
-                updateData.match_name = text;
+                updateData.match_name = text.trim();
             } else if (field === 'winner_team') {
-                updateData.winner_team = text;
+                updateData.winner_team = text.trim();
             } else if (field === 'bet_amount') {
-                const betAmount = parseInt(text);
+                const betAmount = parseInt(text.trim());
                 if (isNaN(betAmount)) {
                     await ctx.reply('Неверный формат суммы ставки');
                     return;
                 }
                 updateData.bet_amount = betAmount;
             } else if (field === 'coefficient') {
-                const coefficient = parseFloat(text);
+                const coefficient = parseFloat(text.trim());
                 if (isNaN(coefficient)) {
                     await ctx.reply('Неверный формат коэффициента');
                     return;
                 }
                 updateData.coefficient = coefficient;
             } else if (field === 'match_started_at') {
-                const matchStartedAt = parseDate(text);
+                const matchStartedAt = parseDate(text.trim());
                 if (!matchStartedAt) {
                     await ctx.reply('Неверный формат даты. Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
                     return;
@@ -1050,13 +1055,13 @@ export class AdminHandlers {
         }
 
         if (field === 'match_name') {
-            updateData.match_name = text;
+            updateData.match_name = text.trim();
         } else if (field === 'team_1') {
-            updateData.team_1 = text;
+            updateData.team_1 = text.trim();
         } else if (field === 'team_2') {
-            updateData.team_2 = text;
+            updateData.team_2 = text.trim();
         } else if (field === 'match_started_at') {
-            const matchStartedAt = parseDate(text);
+            const matchStartedAt = parseDate(text.trim());
             if (!matchStartedAt) {
                 await ctx.reply('Неверный формат даты. Используйте формат: ДД.ММ.ГГГГ ЧЧ:ММ');
                 return;

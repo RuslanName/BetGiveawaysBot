@@ -8,13 +8,13 @@ export class BetEventService {
 
     async createEvent(matchName: string, winnerTeam: string, betAmount: number, coefficient: number, matchStartedAt: Date, fileId: string | null, betboomUrl: string | null, eventType: BetEventType): Promise<BetEvent> {
         return this.eventRepo.create({
-            match_name: matchName,
-            winner_team: winnerTeam,
+            match_name: matchName.trim(),
+            winner_team: winnerTeam.trim(),
             bet_amount: betAmount,
             coefficient: coefficient,
             match_started_at: matchStartedAt,
             file_id: fileId,
-            betboom_url: betboomUrl,
+            betboom_url: betboomUrl?.trim() || null,
             event_type: eventType,
             status: 'active'
         });
@@ -44,7 +44,8 @@ export class BetEventService {
     }
 
     async addBet(userId: number, eventId: number, ticketId: string, fileId: string | null): Promise<void> {
-        const existing = await this.betRepo.findByTicketIdAndEvent(ticketId, eventId);
+        const trimmedTicketId = ticketId.trim();
+        const existing = await this.betRepo.findByTicketIdAndEvent(trimmedTicketId, eventId);
         if (existing) {
             throw new Error('Ticket ID already exists for this event');
         }
@@ -52,16 +53,17 @@ export class BetEventService {
         await this.betRepo.create({
             user_id: userId,
             bet_event_id: eventId,
-            ticket_id: ticketId,
+            ticket_id: trimmedTicketId,
             file_id: fileId
         });
     }
 
     async validateTicketId(ticketId: string, eventId: number): Promise<boolean> {
-        if (!/^\d{1,12}$/.test(ticketId)) {
+        const trimmed = ticketId.trim();
+        if (!/^\d{1,12}$/.test(trimmed)) {
             return false;
         }
-        const existing = await this.betRepo.findByTicketIdAndEvent(ticketId, eventId);
+        const existing = await this.betRepo.findByTicketIdAndEvent(trimmed, eventId);
         return !existing;
     }
 
@@ -184,11 +186,21 @@ export class BetEventService {
     }
 
     async updateEvent(id: number, updates: Partial<BetEvent>): Promise<BetEvent> {
-        return this.eventRepo.update(id, updates);
+        const trimmedUpdates: Partial<BetEvent> = { ...updates };
+        if (trimmedUpdates.match_name) {
+            trimmedUpdates.match_name = trimmedUpdates.match_name.trim();
+        }
+        if (trimmedUpdates.winner_team) {
+            trimmedUpdates.winner_team = trimmedUpdates.winner_team.trim();
+        }
+        if (trimmedUpdates.betboom_url) {
+            trimmedUpdates.betboom_url = trimmedUpdates.betboom_url.trim();
+        }
+        return this.eventRepo.update(id, trimmedUpdates);
     }
 
     async updateEventBetboomUrl(eventId: number, betboomUrl: string): Promise<void> {
-        await this.eventRepo.update(eventId, { betboom_url: betboomUrl });
+        await this.eventRepo.update(eventId, { betboom_url: betboomUrl.trim() });
     }
 }
 

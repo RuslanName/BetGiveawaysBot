@@ -20,7 +20,7 @@ export class UserService {
             first_name: firstName,
             last_name: lastName,
             username: username,
-            betboom_id: betboomId
+            betboom_id: betboomId.trim()
         });
     }
 
@@ -29,10 +29,11 @@ export class UserService {
     }
 
     async validateBetboomId(betboomId: string): Promise<boolean> {
-        if (!/^\d{1,12}$/.test(betboomId)) {
+        const trimmed = betboomId.trim();
+        if (!/^\d{1,12}$/.test(trimmed)) {
             return false;
         }
-        const existing = await this.userRepo.findByBetboomId(betboomId);
+        const existing = await this.userRepo.findByBetboomId(trimmed);
         return !existing;
     }
 
